@@ -1,0 +1,285 @@
+AI SDR Agent Input & Output Handoff
+Integration contract for ICP, Account Discovery, Contact Discovery, and Enrichment
+Purpose: Use this document to align agent owners on the exact fields each agent must receive and produce. The formal integration contracts for Account Discovery, Contact Discovery, and Enrichment appear in Sections 3–5.
+
+1. End-to-End Handoff
+The agents form one pipeline. Every record must retain stable IDs so results can be joined and audited.
+ICP Agent   → Account Discovery Agent       → Contact Discovery Agent           → Enrichment Agent               → Intent / Lead Scoring / Personalization
+
+ICP defines what a good target looks like.
+Account Discovery finds companies matching that definition.
+Contact Discovery finds relevant decision makers inside each selected account.
+Enrichment researches those accounts and contacts, producing cited sales intelligence.
+2. ICP Agent Contract
+Inputs
+Field
+Required?
+Source
+Purpose
+industries
+Recommended
+Sales manager
+Target company industries.
+geographies
+Recommended
+Sales manager
+Markets or operating regions.
+employee_band / range
+Optional
+Sales manager
+Company-size filter.
+revenue_band / range
+Optional
+Sales manager
+Commercial maturity filter.
+target_personas
+Recommended
+Sales manager
+Buyer titles or persona families.
+target_departments
+Optional
+Sales manager
+Relevant business functions.
+pain_points
+Recommended
+Sales manager
+Problems the offer solves.
+offer_summary
+Recommended
+Sales manager
+Product/value proposition.
+exclusions
+Optional
+Sales manager
+Industries, accounts, regions, statuses to avoid.
+scoring_weights
+Optional
+Sales manager/system
+Relative importance of fit dimensions.
+
+Outputs
+Validated and normalized ICP definition with a stable icp_id and version.
+Account criteria: normalized industries, geographies, employee range, and revenue range.
+Persona criteria: normalized titles, departments, and seniority targets.
+Pain points, exclusions, scoring weights, warnings, and audit metadata.
+{   "icp_id": "icp_001",   "version": 1,   "account_criteria": {     "industries": ["software"],     "geographies": ["United States", "United Kingdom"],     "employee_range": {"min": 200, "max": 1000}   },   "persona_criteria": {     "titles": ["VP Sales", "Director of Revenue Operations"]   },   "pain_points": ["poor pipeline visibility", "forecasting inconsistency"],   "exclusions": {"customer_statuses": ["existing_customer"]},   "scoring_weights": {"industry_fit": 0.30, "company_size_fit": 0.20,     "persona_fit": 0.25, "geo_fit": 0.10, "pain_point_fit": 0.15} }
+
+
+3. Account Discovery Agent Contract
+Integration requirement: Account Discovery must produce one normalized account record per discovered company. account_id must be stable and must also appear on every related contact record.
+
+Inputs to Account Discovery
+Field
+Required?
+Source
+Purpose
+icp_id + version
+Required
+ICP Agent
+Links discovered accounts to the target definition.
+account_criteria
+Required
+ICP Agent
+Industry, geography, company-size and revenue filters.
+exclusions
+Required
+ICP Agent
+Removes prohibited accounts before output.
+scoring_weights
+Recommended
+ICP Agent
+Calculates comparable account-fit scores.
+search sources
+Optional
+Workflow config
+CRM, directories, event lists, web, providers.
+result limit
+Optional
+Workflow config
+Controls batch size.
+
+Required Output for Enrichment
+Field
+Required?
+Source
+Purpose
+account_id
+Required
+Account Discovery
+Stable cross-agent join key.
+company_name
+Required
+Account Discovery
+Primary research entity.
+website
+Strongly recommended
+Account Discovery
+Prevents researching the wrong company.
+linkedin_url
+Optional
+Account Discovery
+Company identity and leadership context.
+industry
+Strongly recommended
+Account Discovery
+Improves search and pain-point inference.
+location
+Strongly recommended
+Account Discovery
+Disambiguates similar company names.
+employee_count
+Optional
+Account Discovery
+Size and qualification signal.
+revenue_range
+Optional
+Account Discovery
+Commercial maturity signal.
+source
+Required
+Account Discovery
+Audit trail: CRM, Apollo, web, event list, etc.
+fit_score
+Recommended
+Account Discovery
+Preserves ICP-based ranking.
+fit_reasons
+Recommended
+Account Discovery
+Explains why the account matched.
+discovered_at
+Recommended
+Account Discovery
+Freshness and audit timestamp.
+
+{   "account_id": "acc_123",   "company_name": "Johnson Fitness",   "website": "https://www.johnsonfitness.com",   "linkedin_url": "https://linkedin.com/company/johnson-fitness",   "industry": "Fitness Equipment",   "location": "United States",   "employee_count": 500,   "revenue_range": "mid-market",   "source": "account_discovery",   "fit_score": 87,   "fit_reasons": ["industry match", "market match", "company-size match"],   "discovered_at": "2026-06-09T12:00:00Z" }
+
+4. Contact Discovery Agent Contract
+Integration requirement: Contact Discovery must produce a normalized list of decision makers for each account. Every contact must contain the same account_id produced by Account Discovery.
+
+Inputs to Contact Discovery
+Field
+Required?
+Source
+Purpose
+account record
+Required
+Account Discovery
+Defines the company whose buying committee is searched.
+persona_criteria
+Required
+ICP Agent
+Target titles, departments, and seniorities.
+exclusions
+Recommended
+ICP Agent
+Avoids prohibited personas or existing contacts.
+maximum contacts
+Optional
+Workflow config
+Controls contacts returned per account.
+data sources
+Optional
+Workflow config
+Apollo, PDL, CRM, public pages, directories.
+
+Required Output for Enrichment
+Field
+Required?
+Source
+Purpose
+contact_id
+Required
+Contact Discovery
+Stable contact identifier.
+account_id
+Required
+Account Discovery
+Links contact to the correct company.
+full_name
+Required
+Contact Discovery
+Primary contact research entity.
+title
+Strongly recommended
+Contact Discovery
+Role and persona relevance.
+department
+Recommended
+Contact Discovery
+Buying-committee function.
+seniority
+Recommended
+Contact Discovery
+Decision authority indicator.
+email
+Optional
+Contact Discovery
+Used later by Outreach; not required for web research.
+phone
+Optional
+Contact Discovery
+Used later by Outreach.
+linkedin_url
+Strongly recommended
+Contact Discovery
+Reduces person-identity ambiguity.
+source
+Required
+Contact Discovery
+Auditability and licensing trace.
+confidence
+Recommended
+Contact Discovery
+Confidence that identity/contact data is correct.
+persona_match_score
+Recommended
+Contact Discovery
+Alignment with ICP persona criteria.
+
+{   "contact_id": "con_456",   "account_id": "acc_123",   "full_name": "Sarah Miller",   "title": "VP Sales",   "department": "Sales",   "seniority": "VP",   "email": "sarah@example.com",   "phone": null,   "linkedin_url": "https://linkedin.com/in/sarah-miller",   "source": "contact_discovery",   "confidence": 0.82,   "persona_match_score": 0.91 }
+
+
+5. Exact Enrichment Agent Input
+The Enrichment Agent combines the ICP context, one Account Discovery record, and zero or more Contact Discovery records. Only company_name is technically mandatory, but the complete contract below materially improves accuracy.
+{   "account": {     "account_id": "acc_123",     "company_name": "Johnson Fitness",     "website": "https://www.johnsonfitness.com",     "linkedin_url": "https://linkedin.com/company/johnson-fitness",     "industry": "Fitness Equipment",     "location": "United States",     "employee_count": 500,     "revenue_range": "mid-market",     "source": "account_discovery",     "fit_score": 87   },   "contacts": [     {       "contact_id": "con_456",       "account_id": "acc_123",       "full_name": "Sarah Miller",       "title": "VP Sales",       "department": "Sales",       "seniority": "VP",       "email": "sarah@example.com",       "linkedin_url": "https://linkedin.com/in/sarah-miller",       "source": "contact_discovery",       "confidence": 0.82     }   ],   "icp_context": {     "icp_id": "icp_001",     "version": 1,     "target_personas": ["VP Sales", "Director of Revenue Operations"],     "pain_points": ["slow lead follow-up", "quote conversion gaps"],     "offer_summary": "AI SDR platform",     "exclusions": {"customer_statuses": ["existing_customer"]}   },   "collection": "sdr_enrichment",   "search_provider": "searxng",   "top_k": 8,   "auto_fetch_and_index": true,   "llm_provider": "ollama_local",   "llm_model": "llama3.2:3b" }
+
+Enrichment Output
+Company summary, products/services, target customers and contact briefs.
+Recent business signals with confidence and supporting source URLs.
+Pain-point hypotheses clearly distinguished from verified facts.
+Personalization angles and recommended next action.
+Citations, OpenSearch collection, confidence score, timestamps and audit metadata.
+6. Account Discovery Interface Requirements
+account_id must remain stable across reruns and data sources.
+Website/domain should be verified when available; unverified values must be explicitly flagged.
+Duplicate companies across CRM, web, enrichment providers, and event lists must be resolved to one canonical account.
+fit_score must use a documented scale, preferably 0–1 or 0–100 consistently.
+fit_reasons should accompany the numeric fit score for explainability.
+ICP exclusion rules must be applied before accounts are returned or recorded as explicit warnings.
+Industry, geography, revenue, and employee-count values must use documented normalization rules.
+Source and discovery timestamp fields must be retained for auditability.
+Output must conform to the JSON contract in Section 3.
+7. Contact Discovery Interface Requirements
+Every contact must contain the exact account_id produced by Account Discovery.
+Duplicate people across sources must be resolved to one canonical contact.
+Title, department, and seniority should be normalized to a shared taxonomy.
+persona_match_score and identity confidence should be represented as separate values.
+LinkedIn URL or another public profile URL should be included when available.
+Email and phone verification status should be represented separately from the raw values.
+Source, consent, and applicable licensing metadata must be preserved.
+Former employees and stale contacts should be detected or explicitly flagged.
+Output must conform to the JSON contract in Section 4.
+8. Integration Acceptance Checklist
+☐ account_id is stable, unique, and reused by Contact Discovery.
+☐ contact_id is stable and unique.
+☐ company_name and full_name are never empty.
+☐ Website/domain and LinkedIn URLs are validated when present.
+☐ Scores document their scale and meaning.
+☐ Sources and timestamps are retained.
+☐ ICP exclusions are applied or explicitly flagged.
+☐ Unknown values are null, not invented placeholder text.
+☐ Payloads validate against the shared Pydantic schemas.
+☐ A sample batch is tested end-to-end before live provider integration.
+Mandatory join rule: Account Discovery and Contact Discovery outputs must conform to the JSON contracts in Sections 3 and 4. Every contact must carry the same account_id as its parent account.
+

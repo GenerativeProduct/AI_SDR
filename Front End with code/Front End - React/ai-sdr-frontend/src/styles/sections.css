@@ -1,0 +1,142 @@
+/* Section shell + typography utilities (Phase 8) */
+
+@layer components {
+  .section-anchor {
+    scroll-margin-top: var(--scroll-margin-section);
+  }
+
+  .section-shell {
+    margin-inline: auto;
+    width: 100%;
+    max-width: var(--width-content);
+    padding-inline: 1rem;
+  }
+
+  @media (min-width: 640px) {
+    .section-shell {
+      padding-inline: 1.25rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .section-shell {
+      padding-inline: 1.5rem;
+    }
+  }
+
+  .section-block {
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-surface);
+    padding-block: var(--section-py);
+  }
+
+  @media (min-width: 640px) {
+    .section-block {
+      padding-block: var(--section-py-sm);
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .section-block {
+      padding-block: var(--section-py-lg);
+    }
+  }
+
+  .section-grid-2 {
+    display: grid;
+    width: 100%;
+    align-items: center;
+    gap: var(--section-gap);
+  }
+
+  @media (min-width: 1024px) {
+    .section-grid-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-items: stretch;
+      gap: var(--section-gap-lg);
+    }
+  }
+
+  .text-display {
+    font-size: var(--text-display);
+    line-height: var(--leading-display);
+    font-weight: 500;
+    letter-spacing: var(--tracking-display);
+    color: var(--color-text);
+  }
+
+  .text-h2 {
+    margin: 0;
+    max-width: var(--width-prose);
+    font-size: var(--text-h2);
+    line-height: var(--leading-h2);
+    font-weight: 500;
+    letter-spacing: var(--tracking-h2);
+    color: var(--color-text);
+  }
+
+  .text-h2--center {
+    max-width: var(--width-prose-wide);
+  }
+
+  .text-lead {
+    margin: 0;
+    max-width: var(--width-prose);
+    font-size: var(--text-lead);
+    line-height: var(--leading-lead);
+    font-weight: 500;
+    letter-spacing: var(--tracking-lead);
+    color: var(--color-text-secondary);
+  }
+
+  .text-lead--center {
+    max-width: var(--width-prose-wide);
+  }
+
+  .text-lead--muted {
+    color: #71717a;
+    font-weight: 400;
+  }
+
+  .section-header {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .section-header--center {
+    align-items: center;
+    text-align: center;
+  }
+
+  .section-header__eyebrow {
+    margin-bottom: 2rem;
+  }
+
+  .section-header--center .section-header__eyebrow {
+    margin-bottom: 0;
+  }
+
+  .section-header--center .text-h2 {
+    margin-top: 2rem;
+  }
+
+  .section-header__lead {
+    margin-top: 1.5rem;
+  }
+
+  .section-header--center .section-header__lead {
+    margin-top: 1.5rem;
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+}

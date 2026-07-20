@@ -1,0 +1,7 @@
+# Optional production ML dependencies for Prospect Intelligence.
+lightgbm>=4.3
+shap>=0.45
+mlflow>=2.8
+evidently>=0.7
+pydantic-ai>=0.2
+feast>=0.45

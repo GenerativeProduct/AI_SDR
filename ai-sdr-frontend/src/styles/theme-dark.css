@@ -1,0 +1,23 @@
+/* Dark theme — legacy overrides (extended in theme-dark-global.css) */
+
+html.dark .surface-workspace-sidebar {
+  background: var(--ws-surface-raised);
+  border-right-color: var(--ws-border);
+}
+
+html.dark .ws-card,
+html.dark .ws-input,
+html.dark .ws-select-trigger,
+html.dark .ws-textarea {
+  background: var(--ws-surface-raised);
+  border-color: var(--ws-border);
+  color: var(--ws-text-primary);
+}
+
+html.dark header.border-b.bg-white {
+  background: var(--ws-surface-raised) !important;
+}
+
+html.dark .nav-trigger[data-active='true']::before {
+  background: var(--color-hover-row);
+}

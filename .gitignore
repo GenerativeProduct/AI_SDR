@@ -1,0 +1,64 @@
+# ===== SECRETS — never commit =====
+secrets.local.ps1
+!secrets.local.ps1.example
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+
+# ===== Python virtual environments =====
+.venv/
+venv/
+env/
+
+# ===== Python generated =====
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+*.egg-info/
+
+# ===== Node / React =====
+node_modules/
+**/node_modules/
+dist/
+build/
+test-results/
+playwright-report/
+
+# ===== Local databases (contain prospect/run data) =====
+ai_sdr_platform/data/*.db
+ai_sdr_platform/data/temporal/
+*.sqlite
+*.sqlite3
+
+# ===== Downloaded binaries / tools =====
+bin/
+*.exe
+*.tar.gz
+*.zip
+
+# ===== Generated runtime data =====
+metarank/sdr/events.jsonl
+searxng/uwsgi.ini
+ai_sdr_platform/openclaw/
+mlruns/
+
+# ===== Large media (keep repo lean) =====
+*.mp4
+*.mov
+
+# ===== Logs =====
+*.log
+logs/
+
+# ===== OS / IDE =====
+__MACOSX/
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

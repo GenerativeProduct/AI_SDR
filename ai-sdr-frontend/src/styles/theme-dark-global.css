@@ -1,0 +1,305 @@
+/* Global dark mode — semantic tokens + workspace + module overrides */
+
+:root {
+  --ws-surface-subtle: #fafafa;
+  --ws-surface-muted: #f4f4f5;
+  --ws-surface-card: #ffffff;
+  --ws-gradient-panel: linear-gradient(180deg, #fafafa 0%, var(--ws-canvas) 14rem);
+  --ws-gradient-meta: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);
+  --ws-hover-subtle: #f4f4f5;
+  --ws-shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.03);
+  --ws-inset-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+
+html.dark {
+  color-scheme: dark;
+
+  --color-surface: #09090b;
+  --color-surface-muted: #18181b;
+  --color-surface-elevated: #27272a;
+  --color-border: rgba(255, 255, 255, 0.1);
+  --color-border-strong: rgba(255, 255, 255, 0.2);
+  --color-text: #f4f4f5;
+  --color-text-secondary: #d4d4d8;
+  --color-text-muted: #a1a1aa;
+  --color-text-tertiary: #71717a;
+  --color-accent: #f4f4f5;
+  --color-accent-foreground: #09090b;
+  --color-hover: rgba(255, 255, 255, 0.05);
+  --color-hover-row: rgba(255, 255, 255, 0.03);
+
+  --ws-text-primary: #f4f4f5;
+  --ws-text-secondary: #e4e4e7;
+  --ws-text-tertiary: #d4d4d8;
+  --ws-text-muted: #a1a1aa;
+  --ws-text-caption: #a1a1aa;
+  --ws-placeholder: #71717a;
+  --ws-border: rgba(255, 255, 255, 0.12);
+  --ws-canvas: #09090b;
+  --ws-accent: #f4f4f5;
+
+  --ws-surface-raised: #18181b;
+  --ws-surface-subtle: #27272a;
+  --ws-surface-muted: #3f3f46;
+  --ws-surface-card: #18181b;
+  --ws-gradient-panel: linear-gradient(180deg, #18181b 0%, var(--ws-canvas) 14rem);
+  --ws-gradient-meta: linear-gradient(180deg, #1f1f23 0%, #18181b 100%);
+  --ws-hover-subtle: #27272a;
+  --ws-shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --ws-inset-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+
+  --sdr-chart-track: #27272a;
+  --sdr-chart-fill: #f4f4f5;
+  --sdr-chart-grid: rgba(255, 255, 255, 0.08);
+}
+
+html.dark body {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+/* Workspace chrome */
+html.dark .surface-workspace-sidebar {
+  background: var(--ws-surface-raised);
+  border-right-color: var(--ws-border);
+}
+
+html.dark .ws-sidebar-link:hover,
+html.dark .ws-sidebar-link[aria-current='page'] {
+  background: var(--ws-hover-subtle);
+}
+
+html.dark .ws-sidebar-brand,
+html.dark .ws-sidebar-footer {
+  border-color: var(--ws-border);
+}
+
+html.dark .surface-workspace-panel,
+html.dark .surface-workspace-topbar,
+html.dark .surface-workspace-mobile,
+html.dark .surface-workspace-command,
+html.dark .surface-workspace-drawer {
+  background: color-mix(in srgb, var(--ws-surface-raised) 94%, transparent) !important;
+}
+
+html.dark .ws-card,
+html.dark .ws-input,
+html.dark .ws-select-trigger,
+html.dark .ws-textarea {
+  background: var(--ws-surface-raised);
+  border-color: var(--ws-border);
+  color: var(--ws-text-primary);
+}
+
+html.dark .ws-btn--secondary {
+  background: var(--ws-surface-subtle);
+  border-color: var(--ws-border);
+  color: var(--ws-text-primary);
+}
+
+html.dark .ws-btn--secondary:hover:not(:disabled) {
+  background: var(--ws-surface-muted);
+}
+
+html.dark .ws-btn--ghost:hover:not(:disabled) {
+  background: var(--ws-hover-subtle);
+}
+
+html.dark pre {
+  color: var(--ws-text-muted);
+}
+
+/* Split-pane ops modules */
+html.dark .sdr-split__header,
+html.dark .sdr-split__left,
+html.dark .sdr-split__left-header,
+html.dark .sdr-split__right-header,
+html.dark .sdr-split__detail-header,
+html.dark .sdr-split-kpi,
+html.dark .sdr-split-row,
+html.dark .sdr-split__detail,
+html.dark .sdr-split__canvas-card,
+html.dark .sdr-split__detail-section,
+html.dark .sdr-split__meta-card {
+  background: var(--ws-surface-raised);
+}
+
+html.dark .sdr-split__right {
+  background: var(--ws-gradient-panel);
+}
+
+html.dark .sdr-split-row--active {
+  background: color-mix(in srgb, var(--ws-accent) 8%, var(--ws-surface-raised));
+  border-color: color-mix(in srgb, var(--ws-accent) 24%, var(--ws-border));
+}
+
+html.dark .sdr-split__nav-item:hover {
+  background: var(--ws-hover-subtle);
+}
+
+html.dark .sdr-split__nav-item--active {
+  background: color-mix(in srgb, var(--ws-accent) 10%, var(--ws-surface-raised));
+}
+
+html.dark .sdr-split__detail-section--draft {
+  background: color-mix(in srgb, var(--ws-accent) 6%, var(--ws-surface-raised));
+  border-color: color-mix(in srgb, var(--ws-accent) 18%, var(--ws-border));
+}
+
+html.dark .sdr-split__dev-banner {
+  background: color-mix(in srgb, #f59e0b 8%, var(--ws-surface-raised));
+  border-color: color-mix(in srgb, #f59e0b 35%, var(--ws-border));
+}
+
+html.dark .sdr-split__status-chip--on {
+  color: #86efac;
+}
+
+html.dark .sdr-split__table th {
+  background: var(--ws-surface-subtle);
+}
+
+html.dark .sdr-split__table td {
+  color: var(--ws-text-secondary);
+}
+
+/* Qualification + Outreach modules */
+html.dark .sdr-qualification__evaluate,
+html.dark .sdr-qualification__results-header,
+html.dark .sdr-qualification__evaluate-header,
+html.dark .sdr-qualification-kpi,
+html.dark .sdr-qualification-result,
+html.dark .sdr-qualification__detail,
+html.dark .sdr-qualification__context-card,
+html.dark .sdr-qualification__contact-preview,
+html.dark .sdr-qualification__detail-section,
+html.dark .sdr-qualification__criterion,
+html.dark .sdr-qualification__score-card,
+html.dark .sdr-outreach__compose,
+html.dark .sdr-outreach__inbox-header,
+html.dark .sdr-outreach__compose-header,
+html.dark .sdr-outreach-kpi,
+html.dark .sdr-outreach-result,
+html.dark .sdr-outreach__detail,
+html.dark .sdr-outreach__cadence-card,
+html.dark .sdr-outreach__contact-preview,
+html.dark .sdr-outreach__detail-section {
+  background: var(--ws-surface-raised);
+}
+
+html.dark .sdr-qualification__results,
+html.dark .sdr-outreach__inbox {
+  background: var(--ws-gradient-panel);
+}
+
+html.dark .sdr-qualification-result--active,
+html.dark .sdr-outreach-result--active {
+  background: color-mix(in srgb, var(--ws-accent) 8%, var(--ws-surface-raised));
+}
+
+html.dark .sdr-qualification-result__fill {
+  background: linear-gradient(90deg, #e4e4e7 0%, #a1a1aa 100%);
+}
+
+html.dark .sdr-qualification__framework-tab {
+  color: var(--ws-text-muted);
+}
+
+html.dark .sdr-qualification__framework-tab--active {
+  background: var(--ws-surface-subtle);
+  color: var(--ws-text-primary);
+}
+
+html.dark .sdr-qualification__status-chip--on,
+html.dark .sdr-outreach__status-chip--on {
+  color: #86efac;
+}
+
+html.dark .sdr-qualification__hint {
+  color: #fcd34d;
+}
+
+/* ICP module gaps */
+html.dark .sdr-icp__editor,
+html.dark .sdr-icp__library,
+html.dark .sdr-icp__versions,
+html.dark .sdr-icp__library-header,
+html.dark .sdr-icp__editor-header,
+html.dark .sdr-icp__versions-header,
+html.dark .sdr-icp-profile,
+html.dark .sdr-icp-version,
+html.dark .sdr-icp-criteria-card {
+  background: var(--ws-surface-raised);
+}
+
+html.dark .sdr-icp__workspace {
+  background: var(--ws-canvas);
+}
+
+/* Funnel + charts */
+html.dark .ws-funnel-fill {
+  background: linear-gradient(90deg, #f4f4f5 0%, #a1a1aa 100%);
+}
+
+/* Command palette + modals */
+html.dark .ws-command-item:hover,
+html.dark .ws-command-item[aria-selected='true'] {
+  background: var(--ws-hover-subtle);
+}
+
+html.dark .ws-modal__panel {
+  background: var(--ws-surface-raised);
+  border-color: var(--ws-border);
+}
+
+/* Mobile nav */
+html.dark .surface-workspace-mobile {
+  border-top-color: var(--ws-border);
+  background: var(--ws-surface-raised) !important;
+}
+
+html.dark .ws-mobile-nav__link[aria-current='page'] {
+  color: var(--ws-text-primary);
+}
+
+/* Topbar embedded surfaces */
+html.dark .ws-topbar-search {
+  background: color-mix(in srgb, var(--ws-surface-raised) 88%, var(--ws-surface-subtle));
+  border-color: var(--ws-border);
+}
+
+html.dark .ws-topbar-search:hover,
+html.dark .ws-topbar-search:focus-visible {
+  background: var(--ws-surface-subtle);
+  border-color: color-mix(in srgb, var(--ws-border) 60%, var(--ws-text-muted));
+}
+
+html.dark .ws-topbar-context__icon,
+html.dark .ws-topbar-user-chip,
+html.dark .ws-topbar-icon-btn {
+  background: var(--ws-surface-subtle);
+  border-color: var(--ws-border);
+}
+
+html.dark .ws-topbar-icon-btn:hover {
+  background: var(--ws-surface-muted);
+}
+
+/* List loading skeleton */
+html.dark .ListLoading > div {
+  background: linear-gradient(
+    90deg,
+    var(--ws-surface-subtle) 0%,
+    var(--ws-surface-muted) 50%,
+    var(--ws-surface-subtle) 100%
+  );
+}
+
+/* Scrollbar (webkit) */
+html.dark ::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+}
+
+html.dark ::-webkit-scrollbar-track {
+  background: #18181b;
+}

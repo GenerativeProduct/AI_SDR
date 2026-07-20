@@ -1,0 +1,30 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8011:8011"
+    environment:
+      SDR_AUTH_ENABLED: "true"
+      SDR_JWT_SECRET: ${SDR_JWT_SECRET:-change-me-to-a-long-random-secret-32chars}
+      SDR_CORS_ORIGINS: http://localhost:8080
+      SDR_DISCOVERY_PROVIDER: public
+      SDR_DISCOVERY_SYNTHETIC_CONTACTS: "true"
+      SDR_OUTREACH_PROVIDER: dry_run
+      SDR_MEETING_PROVIDER: dry_run
+      SDR_CRM_PROVIDER: dry_run
+    volumes:
+      - sdr-data:/app/ai_sdr_platform/data
+
+  web:
+    build:
+      context: ./ai-sdr-frontend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+
+volumes:
+  sdr-data:

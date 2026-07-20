@@ -1,0 +1,79 @@
+/* v3 layout — bento + asymmetric grids */
+
+@layer components {
+  .layout-bento {
+    display: grid;
+    gap: 1rem;
+    width: 100%;
+    grid-template-columns: 1fr;
+  }
+
+  @media (min-width: 640px) {
+    .layout-bento {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1.25rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .layout-bento {
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: 1.5rem;
+    }
+
+    .bento-span-4 {
+      grid-column: span 4;
+    }
+    .bento-span-5 {
+      grid-column: span 5;
+    }
+    .bento-span-6 {
+      grid-column: span 6;
+    }
+    .bento-span-7 {
+      grid-column: span 7;
+    }
+    .bento-span-8 {
+      grid-column: span 8;
+    }
+    .bento-span-12 {
+      grid-column: span 12;
+    }
+    .bento-row-2 {
+      grid-row: span 2;
+    }
+  }
+
+  .layout-asymmetric {
+    display: grid;
+    width: 100%;
+    gap: var(--section-gap);
+    align-items: center;
+  }
+
+  @media (min-width: 1024px) {
+    .layout-asymmetric {
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: var(--section-gap-lg);
+    }
+
+    .layout-asymmetric--reverse {
+      grid-template-columns: 0.9fr 1.1fr;
+    }
+
+    .layout-asymmetric--reverse > :first-child {
+      order: 2;
+    }
+  }
+
+  .section-chapter {
+    position: relative;
+    padding-block: var(--section-py-lg);
+  }
+
+  @media (min-width: 1024px) {
+    .section-chapter {
+      padding-block: 7.5rem;
+    }
+  }
+}

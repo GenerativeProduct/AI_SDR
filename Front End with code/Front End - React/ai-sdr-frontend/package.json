@@ -1,0 +1,50 @@
+{
+  "name": "ai-sdr-frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "codegen": "python3 ../ai_sdr_platform/scripts/export_openapi.py && openapi-typescript openapi/openapi.json -o src/api/generated.d.ts",
+    "lint": "oxlint",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:unit": "vitest run",
+    "test:e2e:smoke": "playwright test -c playwright.smoke.config.ts",
+    "test:e2e:live": "playwright test -c playwright.live.config.ts --grep @live",
+    "test:all": "npm run test:unit && npm run backend:ping && npm run test:e2e:live",
+    "seed:demo": "python3 ../ai_sdr_platform/scripts/seed_demo_icp.py",
+    "backend:ping": "curl -sf http://127.0.0.1:8011/health > /dev/null && echo 'AI SDR API OK on :8011' || (echo 'Start backend: uvicorn ai_sdr_platform.src.api.app:app --port 8011' >&2; exit 1)"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.3.2",
+    "@tanstack/react-query": "^5.101.2",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.4.0",
+    "framer-motion": "^12.42.2",
+    "lucide-react": "^1.23.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-router-dom": "^7.18.1",
+    "sonner": "^2.0.7",
+    "tailwind-merge": "^3.6.0",
+    "tailwindcss": "^4.3.2",
+    "zustand": "^5.0.14"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^24.13.2",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
+    "jsdom": "^29.1.1",
+    "openapi-typescript": "^7.13.0",
+    "oxlint": "^1.71.0",
+    "typescript": "~5.9.3",
+    "vite": "^8.1.1",
+    "vitest": "^4.1.9"
+  }
+}

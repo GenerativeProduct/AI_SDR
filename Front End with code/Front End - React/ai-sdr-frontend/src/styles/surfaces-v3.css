@@ -1,0 +1,71 @@
+/* v3 surfaces — glass, depth, mesh backgrounds */
+
+@layer components {
+  .surface-glass {
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(16px) saturate(1.2);
+    -webkit-backdrop-filter: blur(16px) saturate(1.2);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    box-shadow: var(--shadow-elev-2);
+    color: var(--color-text);
+  }
+
+  .surface-glass--on-mesh {
+    background: rgba(255, 255, 255, 0.85);
+    color: #18181b;
+  }
+
+  .surface-elevated {
+    background: var(--color-surface-elevated);
+    border-radius: var(--radius-lg-v3);
+    box-shadow: var(--shadow-elev-3);
+    border: 1px solid var(--color-border);
+  }
+
+  .surface-mesh-hero {
+    background: var(--gradient-mesh-hero);
+  }
+
+  .surface-mesh-muted {
+    background: var(--gradient-surface-muted);
+  }
+
+  .text-on-glass {
+    color: #18181b;
+  }
+
+  .text-on-glass-muted {
+    color: #3f3f46;
+  }
+
+  /* Shared frosted surface — navbar + hero */
+  .surface-nav-frosted {
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(20px) saturate(1.25);
+    -webkit-backdrop-filter: blur(20px) saturate(1.25);
+  }
+
+  .surface-nav-frosted--scrolled {
+    background: rgba(255, 255, 255, 0.88);
+  }
+
+  .nav-v3 {
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .nav-v3--scrolled {
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(20px) saturate(1.25);
+    -webkit-backdrop-filter: blur(20px) saturate(1.25);
+  }
+
+  .text-display-v3 {
+    font-size: var(--text-display-v3);
+    line-height: var(--leading-display-v3);
+    font-weight: 600;
+    letter-spacing: var(--tracking-display-v3);
+    color: var(--color-text);
+  }
+}

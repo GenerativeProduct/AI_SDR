@@ -1,0 +1,15 @@
+# SearXNG config for the AI SDR enrichment pipeline.
+# Inherits all upstream defaults, then enables the JSON API and disables the
+# bot limiter so the backend can query it programmatically.
+use_default_settings: true
+
+server:
+  # Any long random string. Only used locally.
+  secret_key: "ai-sdr-local-searxng-secret-change-me"
+  limiter: false
+  image_proxy: false
+
+search:
+  formats:
+    - html
+    - json

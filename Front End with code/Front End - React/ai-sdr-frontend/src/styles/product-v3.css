@@ -1,0 +1,10 @@
+.product-v3-spotlight {
+  border-radius: var(--radius-xl-v3);
+  padding: 0.5rem;
+  background: rgba(255, 255, 255, 0.4);
+  box-shadow: var(--shadow-glow-v3), var(--shadow-elev-2);
+}
+
+.product-v3-spotlight .product-visual-bg {
+  border-radius: calc(var(--radius-xl-v3) - 0.25rem);
+}

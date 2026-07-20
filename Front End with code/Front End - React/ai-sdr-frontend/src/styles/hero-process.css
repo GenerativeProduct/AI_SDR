@@ -1,0 +1,236 @@
+/* Hero process — staged SVG scenes with crossfade (not morph) */
+
+.hero-process {
+  position: relative;
+  width: 100%;
+  max-width: min(100%, 42rem);
+  margin-inline: auto;
+}
+
+.hero-process__viewport {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  aspect-ratio: 960 / 677;
+  max-height: min(52vh, 28rem);
+  overflow: hidden;
+}
+
+@media (min-width: 1024px) {
+  .hero-process__viewport {
+    max-height: min(58vh, 32rem);
+  }
+}
+
+.hero-process__slide {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transform: scale(0.97) translateY(10px);
+  pointer-events: none;
+  transition:
+    opacity 0.85s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.85s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.hero-process__slide.is-active {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+  pointer-events: auto;
+  z-index: 2;
+}
+
+.hero-process__slide.is-exiting {
+  opacity: 0;
+  transform: scale(0.985) translateY(-6px);
+  z-index: 1;
+}
+
+.hero-process__svg-wrap {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hero-process__svg-wrap :is(svg, .hero-process-svg) {
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+  display: block;
+  overflow: visible;
+}
+
+/* Per-part motion (wrappers have no SVG transform — safe for CSS in all browsers) */
+.hero-process-svg .hero-process-wrap {
+  transform-box: fill-box;
+  transform-origin: center;
+  will-change: transform;
+}
+
+.hero-process__slide.is-active .hero-process-svg .hero-process-wrap {
+  animation: hero-process-float var(--dur, 3.8s) ease-in-out infinite;
+  animation-delay: var(--delay, 0s);
+}
+
+.hero-process__slide.is-active .hero-process-svg .hero-process-wrap--sway {
+  animation-name: hero-process-float-sway;
+}
+
+@keyframes hero-process-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  45% {
+    transform: translateY(var(--drift, -8px));
+  }
+  72% {
+    transform: translateY(calc(var(--drift, -8px) * 0.35));
+  }
+}
+
+@keyframes hero-process-float-sway {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  45% {
+    transform: translateY(var(--drift, -8px)) rotate(0.8deg);
+  }
+  72% {
+    transform: translateY(calc(var(--drift, -8px) * 0.35)) rotate(-0.5deg);
+  }
+}
+
+.hero-process__slide.is-active .hero-process-svg .hero-process-accent {
+  animation: hero-process-pulse var(--dur, 2.6s) ease-in-out infinite;
+  animation-delay: var(--delay, 0s);
+}
+
+@keyframes hero-process-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.72;
+  }
+}
+
+.hero-process__slide.is-active .hero-process-svg .hero-process-deco {
+  animation: hero-process-deco 4.2s ease-in-out infinite;
+  animation-delay: var(--delay, 0s);
+}
+
+@keyframes hero-process-deco {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  50% {
+    transform: translateY(-4px);
+    opacity: 0.88;
+  }
+}
+
+.hero-process__steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+
+.hero-process__step {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgba(255, 255, 255, 0.72);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: #71717a;
+  transition:
+    color 0.35s ease,
+    border-color 0.35s ease,
+    background 0.35s ease,
+    box-shadow 0.35s ease;
+}
+
+.hero-process__step.is-active {
+  color: #3f3f46;
+  border-color: rgba(108, 99, 255, 0.35);
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 0 0 1px rgba(108, 99, 255, 0.12);
+}
+
+.hero-process__step-dot {
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 9999px;
+  background: #d4d4d8;
+  transition: background 0.35s ease, transform 0.35s ease;
+}
+
+.hero-process__step.is-active .hero-process__step-dot {
+  background: #6c63ff;
+  transform: scale(1.15);
+}
+
+.hero-process__arrow {
+  color: #d4d4d8;
+  font-size: 0.625rem;
+  user-select: none;
+}
+
+.hero-process__progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 9999px;
+  overflow: hidden;
+  opacity: 0.85;
+}
+
+.hero-process__progress-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #5248e8, #6c63ff, #8b85ff);
+  border-radius: inherit;
+  transition: width 0.15s linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-process__slide {
+    transition: opacity 0.2s ease;
+    transform: none;
+  }
+
+  .hero-process__slide.is-active,
+  .hero-process__slide.is-exiting {
+    transform: none;
+  }
+
+  .hero-process__progress-bar {
+    transition: none;
+  }
+
+  .hero-process-svg .hero-process-wrap,
+  .hero-process-svg .hero-process-accent,
+  .hero-process-svg .hero-process-deco {
+    animation: none !important;
+  }
+}

@@ -1,0 +1,38 @@
+/* Animated wave divider (section transitions) */
+
+.wave-divider {
+  width: 100%;
+  height: 2.5rem;
+  opacity: 0;
+  transition: opacity 0.9s var(--ease-out-expo, ease);
+}
+
+.wave-divider--visible {
+  opacity: 1;
+}
+
+.wave-divider--dark.wave-divider--visible {
+  opacity: 0.85;
+}
+
+.wave-divider__svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.wave-divider__path {
+  opacity: 0.9;
+}
+
+.wave-divider--dark .wave-divider__path {
+  opacity: 1;
+  filter: drop-shadow(0 0 12px rgba(196, 181, 253, 0.25));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wave-divider {
+    transition: none;
+    opacity: 1;
+  }
+}

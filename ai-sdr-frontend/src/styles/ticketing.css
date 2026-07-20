@@ -1,0 +1,27 @@
+/* Ticketing page-specific overrides */
+
+.ws-timeline-spine {
+  position: absolute;
+  left: 0.75rem;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--ws-border);
+}
+
+.ws-composer-bar {
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid var(--ws-border);
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.04);
+}
+
+.ws-insight-review-active {
+  box-shadow: inset 3px 0 0 var(--ws-status-review);
+}
+
+.issue-detail-aside--insight.ws-insight-review-active {
+  background: color-mix(in srgb, var(--ws-status-review) 4%, #ffffff);
+}

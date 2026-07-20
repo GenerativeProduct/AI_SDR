@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install backend deps
+        run: pip install -r ai_sdr_platform/requirements.txt
+      - name: Pytest
+        run: python -m pytest ai_sdr_platform/tests/ -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ai-sdr-frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: ai-sdr-frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+      - run: npm run test:unit
+      - run: npx playwright install chromium --with-deps
+      - run: npm run test:e2e:smoke
+        env:
+          CI: 'true'
+
+  e2e-live:
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    defaults:
+      run:
+        working-directory: ai-sdr-frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: ai-sdr-frontend/package-lock.json
+      - name: Install backend deps
+        run: pip install -r ai_sdr_platform/requirements.txt
+      - run: npm ci
+      - run: npx playwright install chromium --with-deps
+      - run: npm run test:e2e:live
+        env:
+          CI: 'true'
+          SDR_AUTH_ENABLED: 'true'
+          SDR_JWT_SECRET: ci-test-secret-min-32-chars-long

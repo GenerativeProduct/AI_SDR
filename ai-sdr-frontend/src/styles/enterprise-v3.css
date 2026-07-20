@@ -1,0 +1,12 @@
+.enterprise-v3 {
+  background: var(--color-surface);
+}
+
+.enterprise-case-card--active {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.enterprise-security-theater {
+  box-shadow: var(--shadow-elev-3);
+}

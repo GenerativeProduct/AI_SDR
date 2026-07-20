@@ -1,0 +1,175 @@
+AI SDR Platform: Post-Enrichment to Follow-Up Production Documentation 
+Prospect Intelligence, Outreach, Conversation, Follow-Up, MetaRank, Temporal, Brevo, and OpenClaw implementation notes.
+Scope
+Everything after the Enrichment Agent through Follow-Up, including the new single-chat Streamlit flow.
+Current status
+Implemented and wired locally. Brevo outbound, Temporal follow-up workflows, OpenClaw operator layer, and MetaRank event logging are configured for testing.
+Key principle
+Enrichment evidence becomes probabilistic buyer intelligence, then controlled outreach, conversation handling, and durable follow-up scheduling.
+1. End-to-End Flow
+The platform now runs as a single AI SDR workflow rather than separate manual agent screens. The chatbot accepts one ICP prompt and orchestrates the downstream agents in order.
+	•	ICP Agent converts the user's market description into a structured ICP.
+	•	Prospect Discovery finds matching accounts and contacts.
+	•	Enrichment researches account and contact context.
+	•	Prospect Intelligence converts enrichment evidence into intent, propensity, ranking, and personalization.
+	•	Outreach drafts policy-checked, approval-gated messages and sends through Brevo.
+	•	Follow-Up creates a durable Temporal workflow for later touches.
+	•	Conversation classifies replies, stops follow-ups, drafts responses, and writes outcomes back to learning loops.
+2. Prospect Intelligence Agent
+Prospect Intelligence sits between Enrichment and Outreach. It is different from ICP fit scoring: fit scoring answers whether an account resembles the target customer, while Prospect Intelligence estimates what is likely to happen now if SDR outreach is attempted.
+Module
+What it does
+Production library/framework used
+Signal normalization
+Turns enrichment evidence into consistent funding, hiring, expansion, intent, risk, and recency signals.
+Pydantic contracts in models.py and feature builders in features.py/signals.py.
+Intent probability
+Estimates current buying interest from recency, source trust, activity, and enrichment signals.
+Bootstrap LightGBM artifact now loaded through ArtifactProbabilityPredictor; retrainable with real outcomes.
+Reply/meeting/qualification propensity
+Separates response probability, meeting probability, and qualification probability instead of one fixed score.
+Bootstrap LightGBM artifacts with scikit-learn calibration and persisted model versions.
+Ranking
+Orders prospects for SDR attention after propensity scoring.
+Local cold-start queue ordering plus MetaRank client and event store.
+Personalization
+Produces evidence-grounded email openings, LinkedIn copy, value props, and why-now reasoning.
+Pydantic structured package, enrichment citations, and controlled generation logic.
+Explanation/monitoring
+Stores reasons, warnings, score details, model version, and event logs.
+SHAP-ready explanation surface, Evidently-style monitoring module, JSONL MetaRank feedback.
+Why Prospect Intelligence Is Production-Ready
+	•	It uses typed Pydantic contracts rather than loose dictionaries, so every score package has stable fields for downstream agents.
+	•	It separates fit, intent, reply, meeting, and qualification; this prevents one deterministic score from pretending to explain all outcomes.
+	•	It now uses bootstrap LightGBM artifacts for intent, reply, meeting, and qualification instead of showing heuristic probability mode in the demo.
+	•	The bootstrap models are calibrated with scikit-learn and can be replaced by real outcome-trained models once CRM and outreach labels accumulate.
+	•	It writes ranking and outcome events for MetaRank, which lets the ranking layer learn from real replies, meetings, bounces, and unsubscribes.
+	•	It exposes status endpoints so the UI can show whether ranking is local fallback or learned MetaRank reranking.
+	•	It creates grounded personalization packages that Outreach can use without inventing unsupported claims.
+Cold-start honesty: the current bootstrap LightGBM artifacts are production-shaped priors, not final historical CRM-trained models. As campaigns produce replies, meetings, bounces, and unsubscribes, those real labels should replace the bootstrap artifacts and activate learned MetaRank reranking.
+3. Outreach Agent
+Outreach turns Prospect Intelligence into controlled, provider-backed campaigns. It does not let a broad agent send arbitrary messages. Policy, review, approval, rate limits, provider IDs, and event ingestion live in the backend.
+Component
+Implemented responsibility
+Production stack
+Schemas
+Campaign, message, recipient, event, approval, and command contracts.
+Pydantic
+Policy Agent
+Consent, suppression, frequency, channel eligibility, and safe-send checks.
+Backend policy module
+Message Composer
+Converts personalization packages into email/LinkedIn/phone/SMS style messages.
+Template logic + Pydantic payloads
+Review Agent
+Blocks unsupported, unsafe, or low-quality messages before approval.
+Review module and approval gate
+Send Agent
+Calls provider adapters idempotently and stores provider message IDs.
+Brevo REST API, SMTP/SES/Twilio-ready adapters
+Event Agent
+Consumes delivery, open, click, bounce, unsubscribe, and failure events.
+Brevo transactional webhooks
+Operator API
+Allows OpenClaw to approve, pause, list, and inspect campaigns through controlled backend actions.
+OpenClaw command route
+Brevo is configured for outbound transactional sending. Only the sender email must be verified in Brevo; the recipient can be any valid prospect email. Inbound parsing is intentionally not required for the first test because it usually needs a domain/MX setup.
+4. Conversation Agent
+Conversation handles replies after outreach. It retrieves the original campaign, Prospect Intelligence context, and recent thread history; applies deterministic compliance guardrails; uses a Pydantic-validated structured Ollama decision for nuanced replies; stops follow-up; drafts a response; requires approval; and records learning outcomes.
+Capability
+Current implementation
+Production upgrade path
+Intent classification
+Nuanced replies use structured Ollama output validated by Pydantic; source/model/confidence are stored.
+PydanticAI is listed as an optional provider-abstraction dependency.
+Safety handling
+Unsubscribe, wrong-person, and out-of-office are deterministic guardrails; human replies stop pending follow-up plans.
+Compliance rules remain deterministic by design.
+Reply drafting
+LLM receives campaign, Prospect Intelligence, and thread context; output is post-validated and held for approval.
+Safe draft is supplied if the model omits one.
+Outcome feedback
+Positive replies and meeting requests are written back to Prospect Intelligence and MetaRank event logs.
+Calibrate reply-quality models after enough labeled replies exist.
+Observability
+Threads and agent metadata are persisted; Langfuse traces classification and send operations when credentials are configured.
+OpenTelemetry-compatible Langfuse client plus local structured logs.
+The Conversation Agent is now hybrid: deterministic compliance rules for hard-stop cases and structured LLM extraction for nuanced buyer intent. If Ollama is unavailable, it enters an explicit degraded human-review mode rather than silently pretending the fallback is an ML decision.
+5. Follow-Up Agent
+Follow-Up now uses Temporal as the active production scheduler. Approval of a follow-up plan starts an SDRFollowUpWorkflow, stores the Temporal workflow ID on the plan, and lets Temporal handle durable timers.
+What happens
+Implementation detail
+Plan creation
+Outreach campaign creates two default follow-up touches with scheduled timestamps and approval-required state.
+Approval
+Approve Follow-Up In Temporal changes the plan to active and starts SDRFollowUpWorkflow.
+Durable scheduling
+Temporal workflow sleeps until the next scheduled touch, then calls the backend plan processor.
+Stop rules
+Conversation replies, unsubscribes, bounces, or suppression events stop the plan and suppress pending touches.
+Proof in UI
+Streamlit shows scheduler_backend, temporal_schedule_status, and temporal_workflow_id.
+6. MetaRank Learning Loop
+MetaRank is configured for SDR outcomes, not product clicks. The system logs ranking impressions and later interactions so learned reranking can begin after enough real data exists.
+Phase
+Behavior
+Cold start
+Local probability-weighted ranking is active. Events are written to metarank/sdr/events.jsonl.
+Event collection
+Signals include lead shown, opened, clicked, replied, interested, pricing_request, qualified, meeting_request, meeting_booked, bounced, and unsubscribe.
+Learning activation
+After enough outcomes, start MetaRank and uncomment SDR_INTELLIGENCE_METARANK_URL.
+Production value
+MetaRank reranks the SDR queue based on real feedback, not static rules.
+7. OpenClaw Operator Layer
+OpenClaw is used as the human-facing operator/copilot, not as the sender or owner of provider credentials. It calls the controlled Outreach API.
+	•	Show highest-priority prospects.
+	•	List campaigns waiting for approval.
+	•	Approve or pause a campaign through /outreach/operator/command.
+	•	Show replies requiring attention.
+	•	Show pending follow-up plans and performance summaries.
+8. Runtime Commands for Demo
+Terminal
+Command / purpose
+Temporal server
+temporal server start-dev --db-filename ai_sdr_platform/data/temporal/temporal.db
+Backend
+source .venv/bin/activate; set -a; source ai_sdr_platform/.env.sdr; set +a; uvicorn ai_sdr_platform.src.api.app:app --host 127.0.0.1 --port 8011 --reload
+Temporal worker
+python -m ai_sdr_platform.src.agents.follow_up.temporal_worker
+Streamlit
+BACKEND_URL=http://127.0.0.1:8011 streamlit run app.py --server.port 8511
+Ngrok
+ngrok http 8011 for Brevo outbound delivery webhooks.
+9. What Is Still Deterministic vs Learned
+Area
+Current state
+Why acceptable / next step
+Prospect Intelligence
+Bootstrap LightGBM artifacts for probabilities plus calibration and MetaRank-ready learning loop.
+Demo no longer uses heuristic probability mode; real CRM/outreach outcomes should retrain the artifacts.
+Outreach
+Policy, review, approval, provider delivery, webhooks, and audit storage.
+Production-style because it controls actual sending and avoids unrestricted automation.
+Conversation
+Hybrid compliance guardrails plus Pydantic-validated Ollama classification/drafting and Langfuse tracing.
+Production-shaped; configure Langfuse keys and keep Ollama available for the non-degraded path.
+Follow-Up
+Temporal workflow started on approval.
+Production-ready durable scheduling path; local forced processing remains only a test helper.
+10. Files Added or Used
+	•	Prospect Intelligence: ai_sdr_platform/src/agents/prospect_intelligence/
+	•	Outreach: ai_sdr_platform/src/agents/outreach/
+	•	Conversation: ai_sdr_platform/src/agents/conversation/
+	•	Follow-Up and Temporal worker: ai_sdr_platform/src/agents/follow_up/
+	•	Pipeline route: ai_sdr_platform/src/api/routes/routes_sdr_pipeline.py
+	•	Streamlit chatbot: app.py, first tab AI SDR Chatbot
+	•	MetaRank SDR configuration: metarank/sdr/config.yml and events.jsonl
+	•	OpenClaw skill: ai_sdr_platform/openclaw/skills/sdr-outreach/SKILL.md
+11. Recommended Next Hardening
+	•	Add PydanticAI as a provider-abstraction layer if multiple hosted/local LLM providers are required.
+	•	Add OpenSearch retrieval of original outreach, enrichment evidence, and prior messages before drafting replies.
+	•	Add Langfuse/OpenTelemetry traces for every LLM and routing decision.
+	•	Collect enough SDR outcome events, then activate MetaRank learned reranking.
+	•	Move persistence from local SQLite to PostgreSQL for shared/team demos.
+	•	Use a verified sending domain in Brevo for better deliverability after the first test.
