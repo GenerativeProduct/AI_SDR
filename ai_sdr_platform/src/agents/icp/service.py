@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -147,7 +148,16 @@ class ICPService:
             if band:
                 employee_range = RangeInt(min=band[0], max=band[1])
             else:
-                warnings.append(f"Unknown employee band: {request.employee_band}")
+                # Also accept numeric ranges typed straight from the UI dropdown,
+                # e.g. "100 to 1000", "100-1000", "100 - 1,000", "100+".
+                numbers = re.findall(r"\d[\d,]*", request.employee_band)
+                parsed = [int(n.replace(",", "")) for n in numbers]
+                if len(parsed) >= 2:
+                    employee_range = RangeInt(min=min(parsed), max=max(parsed))
+                elif len(parsed) == 1:
+                    employee_range = RangeInt(min=parsed[0], max=None)
+                else:
+                    warnings.append(f"Unknown employee band: {request.employee_band}")
 
         revenue_range = request.revenue_range_million
         if revenue_range is None and request.revenue_band:

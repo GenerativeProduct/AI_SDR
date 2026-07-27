@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, Query
 
 from ai_sdr_platform.src.agents.prospect_discovery.models import (
@@ -12,6 +14,8 @@ from ai_sdr_platform.src.agents.prospect_discovery.models import (
 from ai_sdr_platform.src.agents.prospect_discovery.repository import SQLAlchemyProspectDiscoveryRepository
 from ai_sdr_platform.src.agents.prospect_discovery.service import ProspectDiscoveryService
 from ai_sdr_platform.src.agents.prospect_discovery.providers import (
+    ApolloAccountProvider,
+    ApolloContactProvider,
     CompaniesHouseAccountProvider,
     CompositeAccountProvider,
     GLEIFAccountProvider,
@@ -25,6 +29,7 @@ from ai_sdr_platform.src.agents.prospect_discovery.providers import (
 from ai_sdr_platform.src.shared.config import settings
 
 router = APIRouter(prefix="/prospect-discovery", tags=["prospect-discovery"])
+logger = logging.getLogger("sdr.prospect_discovery")
 _repository = SQLAlchemyProspectDiscoveryRepository()
 _service = ProspectDiscoveryService(repository=_repository)
 
@@ -33,10 +38,27 @@ def configure_prospect_discovery_service(
     opensearch_web: object | None = None,
 ) -> ProspectDiscoveryService:
     global _service
+    logger.info(
+        "Configuring prospect discovery: provider=%s | apollo_key=%s",
+        settings.discovery_provider,
+        "set" if settings.discovery_apollo_api_key else "MISSING",
+    )
     if settings.discovery_provider == "mock":
+        logger.warning("Discovery running in MOCK mode - hardcoded companies only.")
         _service = ProspectDiscoveryService(repository=_repository)
         return _service
     account_providers = []
+    # Apollo first when configured: it is the only account source that returns a
+    # real company domain, which contact discovery requires. GLEIF returns no
+    # website at all and OpenCorporates returns a registry URL, so accounts from
+    # those sources cannot be used to look up people.
+    if settings.discovery_apollo_api_key:
+        account_providers.append(
+            ApolloAccountProvider(
+                api_key=settings.discovery_apollo_api_key,
+                timeout_seconds=settings.discovery_timeout_seconds,
+            )
+        )
     if settings.discovery_enable_web_search and opensearch_web is not None:
         account_providers.append(
             WebSearchAccountProvider(
@@ -67,7 +89,16 @@ def configure_prospect_discovery_service(
                 timeout_seconds=settings.discovery_timeout_seconds,
             )
         )
-    if settings.discovery_enable_web_search and opensearch_web is not None:
+    # Apollo first: it is the only provider that returns real, named people.
+    # Web search and synthetic personas remain as fallbacks.
+    if settings.discovery_apollo_api_key:
+        contact_provider = ApolloContactProvider(
+            api_key=settings.discovery_apollo_api_key,
+            timeout_seconds=settings.discovery_timeout_seconds,
+            contacts_per_account=settings.discovery_apollo_contacts_per_account,
+            reveal_emails=settings.discovery_apollo_reveal_emails,
+        )
+    elif settings.discovery_enable_web_search and opensearch_web is not None:
         contact_provider = WebSearchContactProvider(opensearch_web=opensearch_web)
     elif settings.discovery_synthetic_contacts:
         contact_provider = SyntheticContactProvider()
@@ -77,6 +108,11 @@ def configure_prospect_discovery_service(
         repository=_repository,
         account_provider=CompositeAccountProvider(providers=account_providers),
         contact_provider=contact_provider,
+    )
+    logger.info(
+        "Discovery configured: account_providers=[%s] | contact_provider=%s",
+        ", ".join(p.name for p in account_providers),
+        contact_provider.name,
     )
     return _service
 

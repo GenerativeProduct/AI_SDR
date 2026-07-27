@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
+
+logger = logging.getLogger("sdr.pipeline")
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -105,34 +108,50 @@ def _execute_pipeline(
             "search to unlock intelligence and outreach."
         )
     for account in discovery.accounts[: payload.enrich_top_accounts]:
-        enrichment_request = EnrichmentResearchRequest(
-            account=account.model_dump(),
-            contacts=[contact.model_dump() for contact in contacts_by_account.get(account.account_id, [])],
-            icp_context=icp_definition.model_dump(mode="json"),
-            collection=payload.collection,
-            search_provider=payload.search_provider,
-            top_k=payload.top_k,
-            auto_fetch_and_index=payload.auto_fetch_and_index,
-            llm_provider=payload.llm_provider,
-            llm_model=payload.llm_model,
-            created_by=payload.created_by,
-        )
-        enrichment_result = enrichment_service.research(enrichment_request)
-        enriched_results.append(enrichment_result)
-        for contact in contacts_by_account.get(account.account_id, []):
-            intelligence = intelligence_service.analyze(
-                ProspectIntelligenceRequest(
-                    account=account,
-                    contact=contact,
-                    enrichment=enrichment_result,
-                    icp_definition=icp_definition,
-                    llm_provider=payload.llm_provider,
-                    llm_model=payload.llm_model,
-                    created_by=payload.created_by,
-                )
+        try:
+            enrichment_request = EnrichmentResearchRequest(
+                account=account.model_dump(),
+                contacts=[contact.model_dump() for contact in contacts_by_account.get(account.account_id, [])],
+                icp_context=icp_definition.model_dump(mode="json"),
+                collection=payload.collection,
+                search_provider=payload.search_provider,
+                top_k=payload.top_k,
+                auto_fetch_and_index=payload.auto_fetch_and_index,
+                llm_provider=payload.llm_provider,
+                llm_model=payload.llm_model,
+                created_by=payload.created_by,
             )
-            intelligence_results.append(intelligence)
-    intelligence_results = intelligence_service.rerank_results(intelligence_results)
+            enrichment_result = enrichment_service.research(enrichment_request)
+            enriched_results.append(enrichment_result)
+        except Exception as exc:
+            logger.error("Enrichment agent failed for %s: %s", account.company_name, exc)
+            warnings.append(
+                f"Enrichment skipped for {account.company_name}: {exc}. "
+                "Check that Ollama and the enrichment search provider are running."
+            )
+            continue
+        for contact in contacts_by_account.get(account.account_id, []):
+            try:
+                intelligence = intelligence_service.analyze(
+                    ProspectIntelligenceRequest(
+                        account=account,
+                        contact=contact,
+                        enrichment=enrichment_result,
+                        icp_definition=icp_definition,
+                        llm_provider=payload.llm_provider,
+                        llm_model=payload.llm_model,
+                        created_by=payload.created_by,
+                    )
+                )
+                intelligence_results.append(intelligence)
+            except Exception as exc:
+                logger.error("Intelligence agent failed for %s: %s", contact.full_name, exc)
+                warnings.append(f"Prospect intelligence skipped for {contact.full_name}: {exc}.")
+    try:
+        intelligence_results = intelligence_service.rerank_results(intelligence_results)
+    except Exception as exc:
+        logger.error("Intelligence rerank failed: %s", exc)
+        warnings.append(f"Prospect intelligence reranking skipped: {exc}.")
     enrichment_by_account = {result.account_id: result for result in enriched_results}
     for intelligence in intelligence_results:
         contact = contacts_by_id.get(intelligence.contact_id)
@@ -147,14 +166,19 @@ def _execute_pipeline(
                 f"Qualification skipped for {intelligence.contact_name}: enrichment handoff is missing."
             )
             continue
-        qualification = qualification_service.qualify(
-            QualificationRequest(
-                intelligence=intelligence,
-                contact=contact,
-                enrichment=enrichment,
-                created_by=payload.created_by,
+        try:
+            qualification = qualification_service.qualify(
+                QualificationRequest(
+                    intelligence=intelligence,
+                    contact=contact,
+                    enrichment=enrichment,
+                    created_by=payload.created_by,
+                )
             )
-        )
+        except Exception as exc:
+            logger.error("Qualification agent failed for %s: %s", contact.full_name, exc)
+            warnings.append(f"Qualification skipped for {contact.full_name}: {exc}.")
+            continue
         qualification_results.append(qualification)
         if qualification.qualification_status not in {"SQL", "MQL"}:
             warnings.append(
@@ -182,7 +206,8 @@ def _execute_pipeline(
                     )
                 )
             )
-        except ValueError as exc:
+        except Exception as exc:
+            logger.error("Outreach/follow-up agent failed for %s: %s", contact.full_name, exc)
             warnings.append(f"Outreach draft skipped for {contact.full_name}: {exc}")
     return SDRPipelineResponse(
         icp_definition=icp_definition,

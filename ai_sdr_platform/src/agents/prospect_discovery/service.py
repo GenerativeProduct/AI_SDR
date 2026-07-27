@@ -255,10 +255,20 @@ class ProspectDiscoveryService:
         industry = account.industry.lower()
         location = account.location.lower()
 
+        # Apollo applies the industry, location and employee filters server-side,
+        # so its results already satisfy the ICP. Apollo's company-search payload
+        # frequently omits parsed industry/city/state/country (they come back as
+        # "Unknown"), which would fail the local string checks below and wrongly
+        # discard every real company. Trust the provider's own filtering instead.
+        provider_filtered = account.source == "apollo"
+
         if industries:
             if any(value in industry for value in industries):
                 score += 40
                 reasons.append("industry match")
+            elif provider_filtered:
+                score += 40
+                reasons.append("industry matched via Apollo keyword filters")
             elif account.source in {
                 "gleif",
                 "sec_edgar",
@@ -275,6 +285,9 @@ class ProspectDiscoveryService:
             if ProspectDiscoveryService._geography_matches(location, geographies):
                 score += 30
                 reasons.append("geography match")
+            elif provider_filtered:
+                score += 30
+                reasons.append("geography matched via Apollo location filters")
             else:
                 return 0, ["geography did not match the ICP"]
         else:

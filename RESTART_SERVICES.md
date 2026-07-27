@@ -35,7 +35,7 @@ curl.exe "http://127.0.0.1:8088/search?q=test&format=json"      # SearXNG (expec
 Started via docker compose, so bring it back the same way:
 
 ```powershell
-cd E:\Gen_Products\Latest_code\AI_SDR\metarank\sdr
+cd C:\Users\sachi\Desktop\Desktop\Gen_Products\Latest_code\AI_SDR\metarank\sdr
 docker compose up -d
 docker compose ps
 ```
@@ -47,7 +47,7 @@ docker compose ps
 Using the project-local binary in `bin\` (persistent DB):
 
 ```powershell
-cd E:\Gen_Products\Latest_code\AI_SDR
+cd C:\Users\sachi\Desktop\Desktop\Gen_Products\Latest_code\AI_SDR
 .\bin\temporal.exe server start-dev --db-filename ai_sdr_platform\data\temporal\temporal.db --ui-port 8233
 ```
 
@@ -59,7 +59,7 @@ Keep this terminal open. UI: http://127.0.0.1:8233
 ## 4. SDR Backend  (Terminal 7 — the core)
 
 ```powershell
-cd E:\Gen_Products\Latest_code\AI_SDR
+cd C:\Users\sachi\Desktop\Desktop\Gen_Products\Latest_code\AI_SDR
 .\start-sdr-backend.ps1
 ```
 
@@ -73,7 +73,7 @@ Wait for `Application startup complete`. Verify: http://127.0.0.1:8011/docs
 New terminal — **make sure the prompt shows `(.venv)`** before running:
 
 ```powershell
-cd E:\Gen_Products\Latest_code\AI_SDR
+cd C:\Users\sachi\Desktop\Desktop\Gen_Products\Latest_code\AI_SDR
 $env:SDR_API_BASE_URL="http://127.0.0.1:8011"
 python -m ai_sdr_platform.src.agents.follow_up.temporal_worker
 ```
@@ -87,7 +87,7 @@ Goes quiet when healthy (it's polling Temporal). Requires Terminals 5 + 7 runnin
 `node_modules` persists, so no reinstall needed:
 
 ```powershell
-cd E:\Gen_Products\Latest_code\AI_SDR\ai-sdr-frontend
+cd C:\Users\sachi\Desktop\Desktop\Gen_Products\Latest_code\AI_SDR\ai-sdr-frontend
 npm run dev
 ```
 
@@ -108,6 +108,6 @@ Open **http://localhost:5173** — login `admin@sdr.local` / `admin123`.
 
 ```powershell
 docker stop opensearch-sdr searxng-sdr
-cd E:\Gen_Products\Latest_code\AI_SDR\metarank\sdr; docker compose down
+cd C:\Users\sachi\Desktop\Desktop\Gen_Products\Latest_code\AI_SDR\metarank\sdr; docker compose down
 ```
 Then Ctrl+C in the Temporal, backend, worker, and frontend terminals.

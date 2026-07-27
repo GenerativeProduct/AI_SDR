@@ -22,6 +22,18 @@ class SDRSettings:
     discovery_synthetic_contacts: bool = (
         os.getenv("SDR_DISCOVERY_SYNTHETIC_CONTACTS", "true").lower() == "true"
     )
+    # Apollo contact discovery. When a key is present the Apollo provider takes
+    # priority over web-search and synthetic contacts.
+    discovery_apollo_api_key: str = os.getenv(
+        "SDR_DISCOVERY_APOLLO_API_KEY", os.getenv("APOLLO_API_KEY", "")
+    )
+    discovery_apollo_contacts_per_account: int = int(
+        os.getenv("SDR_DISCOVERY_APOLLO_CONTACTS_PER_ACCOUNT", "5")
+    )
+    # Revealing emails calls Apollo's enrichment endpoint and consumes credits.
+    discovery_apollo_reveal_emails: bool = (
+        os.getenv("SDR_DISCOVERY_APOLLO_REVEAL_EMAILS", "true").lower() == "true"
+    )
     discovery_timeout_seconds: float = float(
         os.getenv("SDR_DISCOVERY_TIMEOUT_SECONDS", "15")
     )

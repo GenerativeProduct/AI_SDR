@@ -17,7 +17,7 @@
 # ------------------------------------------------------------
 
 $ErrorActionPreference = "Stop"
-Set-Location "E:\Gen_Products\Latest_code\AI_SDR"
+Set-Location "C:\Users\sachi\Desktop\Desktop\Gen_Products\Latest_code\AI_SDR"
 
 $ApolloKey = ""
 if (Test-Path ".\secrets.local.ps1") {

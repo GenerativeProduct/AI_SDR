@@ -1,9 +1,46 @@
+# Core runtime dependencies for the AI SDR Platform API.
+#
+# Everything listed here is imported at module level somewhere on the import
+# chain starting at ai_sdr_platform.src.api.app. If any one of them is absent
+# the API fails to start with ModuleNotFoundError.
+
+# --- Web framework and server ---
 fastapi>=0.115
 uvicorn[standard]>=0.32
-sqlalchemy>=2.0
+python-multipart>=0.0.12
+
+# --- Data modelling and persistence ---
 pydantic>=2.9
-httpx>=0.27
-pytest>=8.0
+sqlalchemy>=2.0
+
+# --- Authentication ---
 PyJWT>=2.9
 bcrypt>=4.2
-python-multipart>=0.0.12
+
+# --- HTTP clients ---
+# httpx is used by the CRM and meeting providers; requests is used by the
+# conversation LLM agent, outreach providers and the follow-up workflow.
+httpx>=0.27
+requests>=2.32
+
+# --- Outreach message composition ---
+jinja2>=3.1
+
+# --- Prospect Intelligence scoring ---
+# numpy, scikit-learn and joblib are imported at module level by the feature
+# builders and the artifact-backed probability predictors.
+numpy>=1.26
+scikit-learn>=1.4
+joblib>=1.4
+
+# --- Durable follow-up scheduling ---
+# Imported at module level by the follow-up service, so the API will not start
+# without it even when Temporal itself is not running.
+temporalio>=1.8
+
+# --- Testing ---
+pytest>=8.0
+
+# Optional extras live in separate files:
+#   requirements-ml.txt        LightGBM, SHAP, MLflow, Evidently (training/explainability)
+#   requirements-outreach.txt  Twilio, Redis, OpenTelemetry, Langfuse (live providers)

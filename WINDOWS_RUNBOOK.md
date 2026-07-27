@@ -1,10 +1,10 @@
 # AI SDR Platform — Windows / PowerShell Runbook
 
-Adapted from the Mac 9-terminal runbook for this repo at `E:\Gen_Products\Latest_code\AI_SDR`.
+Adapted from the Mac 9-terminal runbook for this repo at `C:\Users\sachi\Desktop\Desktop\Gen_Products\Latest_code\AI_SDR`.
 Open each **numbered terminal** in VS Code (Terminal → Split Terminal) and keep long-running ones open.
 
 > **What changed vs the Mac runbook**
-> - Paths use `E:\Gen_Products\Latest_code\AI_SDR` (not `/Users/sathya/...`).
+> - Paths use `C:\Users\sachi\Desktop\Desktop\Gen_Products\Latest_code\AI_SDR` (not `/Users/sathya/...`).
 > - `source .venv/bin/activate` → `.venv\Scripts\Activate.ps1`
 > - `export VAR=val` → `$env:VAR="val"`
 > - `2>/dev/null` → `2>$null`
@@ -29,7 +29,7 @@ Install these first (skip any you already have):
 ### One-time Python environment
 
 ```powershell
-cd E:\Gen_Products\Latest_code\AI_SDR
+cd C:\Users\sachi\Desktop\Desktop\Gen_Products\Latest_code\AI_SDR
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
@@ -49,6 +49,7 @@ pip install streamlit pandas numpy plotly requests scikit-learn
 - **Short mode (ICP → Apollo discovery → SearXNG enrichment):** Terminals **1, 2, 3, 7, 9**.
 - **Full flow (through follow-up + conversation):** add Terminals **4, 5, 8**.
 - Terminal 6 is skipped in both (no backend in this repo).
+- **Terminal 10 (Streamlit UI)** is an optional alternative to Terminal 9 — use one UI, not both.
 
 ---
 
@@ -86,7 +87,7 @@ that enables JSON and disables the limiter. Mount that folder when starting it:
 
 ```powershell
 docker rm -f searxng-sdr 2>$null
-docker run --name searxng-sdr -p 8088:8080 -e "BASE_URL=http://127.0.0.1:8088/" -v "E:\Gen_Products\Latest_code\AI_SDR\searxng:/etc/searxng" searxng/searxng:latest
+docker run --name searxng-sdr -p 8088:8080 -e "BASE_URL=http://127.0.0.1:8088/" -v "C:\Users\sachi\Desktop\Desktop\Gen_Products\Latest_code\AI_SDR\searxng:/etc/searxng" searxng/searxng:latest
 ```
 
 Health check: `curl.exe "http://127.0.0.1:8088/search?q=openai&format=json"`
@@ -104,7 +105,7 @@ Health check: `curl.exe "http://127.0.0.1:8088/search?q=openai&format=json"`
 ## Terminal 4 — MetaRank (Docker)  *(full flow only)*
 
 ```powershell
-cd E:\Gen_Products\Latest_code\AI_SDR
+cd C:\Users\sachi\Desktop\Desktop\Gen_Products\Latest_code\AI_SDR
 .venv\Scripts\Activate.ps1
 python ai_sdr_platform\scripts\seed_metarank_sdr_events.py
 cd metarank\sdr
@@ -132,7 +133,7 @@ Downloads `temporal.exe` into a `bin\` folder inside the repo — no system PATH
 installed once, reused every run. First-time setup:
 
 ```powershell
-cd E:\Gen_Products\Latest_code\AI_SDR
+cd C:\Users\sachi\Desktop\Desktop\Gen_Products\Latest_code\AI_SDR
 mkdir bin -Force
 Invoke-WebRequest -Uri "https://temporal.download/cli/archive/latest?platform=windows&arch=amd64" -OutFile "bin\temporal.tar.gz"
 tar -xzf bin\temporal.tar.gz -C bin
@@ -142,7 +143,7 @@ tar -xzf bin\temporal.tar.gz -C bin
 Then start the server (this and every later run):
 
 ```powershell
-cd E:\Gen_Products\Latest_code\AI_SDR
+cd C:\Users\sachi\Desktop\Desktop\Gen_Products\Latest_code\AI_SDR
 mkdir ai_sdr_platform\data\temporal -Force
 .\bin\temporal.exe server start-dev --db-filename ai_sdr_platform\data\temporal\temporal.db --ui-port 8233
 ```
@@ -185,7 +186,7 @@ Health check: open **http://127.0.0.1:8011/docs** (Swagger UI). Login for protec
 <summary>Manual alternative (set env vars by hand each session)</summary>
 
 ```powershell
-cd E:\Gen_Products\Latest_code\AI_SDR
+cd C:\Users\sachi\Desktop\Desktop\Gen_Products\Latest_code\AI_SDR
 .venv\Scripts\Activate.ps1
 
 $env:SDR_API_BASE_URL="http://127.0.0.1:8011"
@@ -225,7 +226,7 @@ their timed touches never execute.
 `pip install temporalio`.
 
 ```powershell
-cd E:\Gen_Products\Latest_code\AI_SDR
+cd C:\Users\sachi\Desktop\Desktop\Gen_Products\Latest_code\AI_SDR
 .venv\Scripts\Activate.ps1
 $env:SDR_API_BASE_URL="http://127.0.0.1:8011"
 python -m ai_sdr_platform.src.agents.follow_up.temporal_worker
@@ -245,7 +246,7 @@ backend on `:8011` (Vite proxies `/api` → `http://127.0.0.1:8011`).
 `node --version` fails.
 
 ```powershell
-cd E:\Gen_Products\Latest_code\AI_SDR\ai-sdr-frontend
+cd C:\Users\sachi\Desktop\Desktop\Gen_Products\Latest_code\AI_SDR\ai-sdr-frontend
 npm install        # first time only (installs node_modules)
 npm run dev
 ```
@@ -258,7 +259,7 @@ Optional — seed a sample ICP so the dashboard isn't empty (run from the repo r
 with the venv active):
 
 ```powershell
-cd E:\Gen_Products\Latest_code\AI_SDR
+cd C:\Users\sachi\Desktop\Desktop\Gen_Products\Latest_code\AI_SDR
 python ai_sdr_platform\scripts\seed_demo_icp.py
 ```
 
@@ -267,8 +268,43 @@ Routes: `/` dashboard · `/pipeline` NL ICP chat + async pipeline · `/icp` edit
 
 > **Legacy alternative — Streamlit (port 8501):** the old `app.py` UI still exists.
 > It originally crashed on a missing `custom_gpt` module; that import has been removed
-> from `app.py`, so `streamlit run app.py --server.port 8501` now works too if you
-> prefer it. The React app is the primary UI going forward.
+> from `app.py`, so it now runs fine. See **Terminal 10** below for the full steps.
+> The React app is the primary UI going forward.
+
+---
+
+## Terminal 10 — Streamlit UI (legacy, port 8501)  *(optional)*
+
+The original Streamlit UI is `app.py` in the repo root. It talks to the same SDR
+backend on `:8011` (via `SDR_API_BASE_URL`, which defaults to `http://127.0.0.1:8011`),
+so **Terminal 7 (backend) must be running first**. Use this only if you prefer the
+Streamlit interface over the React app (Terminal 9) — you don't need both.
+
+**Prerequisite:** the Streamlit packages from Step 0. If you skipped them:
+
+```powershell
+cd C:\Users\sachi\Desktop\Desktop\Gen_Products\Latest_code\AI_SDR
+.venv\Scripts\Activate.ps1
+pip install streamlit pandas numpy plotly requests scikit-learn
+```
+
+**Run it:**
+
+```powershell
+cd C:\Users\sachi\Desktop\Desktop\Gen_Products\Latest_code\AI_SDR
+.venv\Scripts\Activate.ps1
+streamlit run app.py --server.port 8501
+```
+
+Streamlit opens **http://localhost:8501** automatically. If the backend is on a
+non-default host/port, set it first in the same terminal:
+
+```powershell
+$env:SDR_API_BASE_URL="http://127.0.0.1:8011"
+```
+
+> **Note:** run the React frontend (Terminal 9) *or* Streamlit (Terminal 10), not both —
+> they're two UIs for the same backend and use different ports (5173 vs 8501).
 
 ---
 
@@ -284,6 +320,9 @@ Routes: `/` dashboard · `/pipeline` NL ICP chat + async pipeline · `/icp` edit
 **Full flow:** 1 → 2 → 3 → 4 → 5 → 7 → 8 → 9
 
 Start Docker services (2, 3, and 4) first, give OpenSearch ~30s to come up, then start the backend (7).
+
+> **UI choice:** Terminal 9 (React, :5173) is the primary UI. Terminal 10 (Streamlit, :8501)
+> is an optional legacy alternative — pick one, not both. Either can replace 9 in the orders above.
 
 > **Restarting after a reboot?** Don't re-run the `docker run` commands (they'll error
 > "name already in use"). See `RESTART_SERVICES.md` for the restart-only commands.

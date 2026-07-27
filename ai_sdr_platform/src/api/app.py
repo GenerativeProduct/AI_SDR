@@ -1,6 +1,19 @@
 from pathlib import Path
+import logging
 import os
 import sys
+
+# Surface our own "sdr.*" loggers on the console. Uvicorn only configures its
+# own loggers, so application INFO logs (e.g. how many companies Apollo returned)
+# would otherwise be hidden. This makes discovery diagnostics visible in the
+# backend terminal.
+_sdr_logger = logging.getLogger("sdr")
+if not _sdr_logger.handlers:
+    _handler = logging.StreamHandler()
+    _handler.setFormatter(logging.Formatter("%(levelname)s: [%(name)s] %(message)s"))
+    _sdr_logger.addHandler(_handler)
+    _sdr_logger.setLevel(logging.INFO)
+    _sdr_logger.propagate = False
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

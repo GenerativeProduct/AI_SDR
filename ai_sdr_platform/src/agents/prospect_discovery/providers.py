@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import re
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 import requests
+
+logger = logging.getLogger("sdr.prospect_discovery")
 
 from ai_sdr_platform.src.agents.icp.models import ICPDefinition
 from ai_sdr_platform.src.agents.prospect_discovery.models import (
@@ -629,6 +632,7 @@ class CompositeAccountProvider:
                 candidates = provider.search_accounts(icp, limit)
             except Exception as exc:
                 self.errors.append(f"{provider.name}: {exc}")
+                logger.error("Discovery provider '%s' failed: %s", provider.name, exc)
                 continue
             for candidate in candidates:
                 key = candidate.company_name.lower().strip()
@@ -680,6 +684,464 @@ def _infer_seniority_from_title(title: str) -> str:
     if "manager" in lowered:
         return "Manager"
     return "Director"
+
+
+_APOLLO_SENIORITY_MAP = {
+    "c_suite": "C-Suite",
+    "founder": "C-Suite",
+    "owner": "C-Suite",
+    "partner": "C-Suite",
+    "vp": "VP",
+    "head": "Director",
+    "director": "Director",
+    "manager": "Manager",
+    "senior": "Manager",
+    "entry": "Individual Contributor",
+    "intern": "Individual Contributor",
+}
+
+_APOLLO_TARGET_SENIORITY_MAP = {
+    "c-suite": "c_suite",
+    "c suite": "c_suite",
+    "cxo": "c_suite",
+    "vp": "vp",
+    "vice president": "vp",
+    "director": "director",
+    "head": "head",
+    "manager": "manager",
+}
+
+
+# Registry and aggregator domains that appear in account.website but are NOT the
+# company's own site. Querying Apollo with these would return people who work at
+# the registry (e.g. OpenCorporates staff) for every account.
+_NON_COMPANY_DOMAINS = {
+    "opencorporates.com",
+    "gleif.org",
+    "sec.gov",
+    "find-and-update.company-information.service.gov.uk",
+    "company-information.service.gov.uk",
+    "linkedin.com",
+    "crunchbase.com",
+}
+
+
+def _is_placeholder_domain(domain: str) -> bool:
+    """True when a domain cannot be used to identify a real company.
+
+    Covers the fabricated "<slug>.example.com" domains produced by the synthetic
+    provider, and registry URLs that point at a data source rather than at the
+    company itself.
+    """
+    if not domain or domain.endswith(".example.com"):
+        return True
+    return domain.lower() in _NON_COMPANY_DOMAINS
+
+
+_APOLLO_COUNTRY_TOKENS = {
+    "us": "US",
+    "u.s.": "US",
+    "usa": "US",
+    "united states": "US",
+    "united states of america": "US",
+    "america": "US",
+    "uk": "United Kingdom",
+    "u.k.": "United Kingdom",
+    "united kingdom": "United Kingdom",
+    "great britain": "United Kingdom",
+    "canada": "Canada",
+    "india": "India",
+    "australia": "Australia",
+    "germany": "Germany",
+    "france": "France",
+}
+
+
+def apollo_org_locations(geographies: list[str]) -> list[str]:
+    """Turn ICP geographies into Apollo-friendly ``organization_locations``.
+
+    Apollo treats ``organization_locations`` as an OR list, so a bare country
+    such as ``"US"`` matches *every* US company and silently overrides any more
+    specific city/state in the same list (e.g. ``["New York", "US"]`` returns
+    all US companies, not just New York ones). This helper drops standalone
+    country tokens whenever a more specific location is present, and attaches a
+    single country as a suffix (``"New York, US"``) so Apollo scopes correctly.
+    """
+    specific: list[str] = []
+    countries: list[str] = []
+    for geo in geographies:
+        token = (geo or "").strip()
+        if not token:
+            continue
+        mapped = _APOLLO_COUNTRY_TOKENS.get(token.lower())
+        if mapped is not None:
+            if mapped not in countries:
+                countries.append(mapped)
+        elif token not in specific:
+            specific.append(token)
+
+    if specific:
+        if len(countries) == 1:
+            return [f"{loc}, {countries[0]}" for loc in specific]
+        return specific
+    return countries
+
+
+@dataclass
+class ApolloAccountProvider:
+    """Real companies (with real domains) from Apollo's Organization Search.
+
+    Public registries such as GLEIF and OpenCorporates return legal entities
+    without a website, which makes them unusable for contact discovery: Apollo
+    is queried by company domain. This provider returns companies that carry a
+    `primary_domain`, so the contact stage can actually find people at them.
+    """
+
+    api_key: str
+    name: str = "apollo"
+    base_url: str = "https://api.apollo.io/api/v1"
+    timeout_seconds: float = 20.0
+
+    def _headers(self) -> dict[str, str]:
+        return {
+            "Content-Type": "application/json",
+            "Cache-Control": "no-cache",
+            "accept": "application/json",
+            "x-api-key": self.api_key,
+        }
+
+    def search_accounts(self, icp: ICPDefinition, limit: int) -> list[DiscoveredAccount]:
+        if not self.api_key:
+            return []
+
+        criteria = icp.account_criteria
+        payload: dict[str, Any] = {
+            "page": 1,
+            "per_page": max(1, min(limit, 100)),
+        }
+        if criteria.industries:
+            payload["q_organization_keyword_tags"] = list(criteria.industries)
+        if criteria.geographies:
+            locations = apollo_org_locations(list(criteria.geographies))
+            if locations:
+                payload["organization_locations"] = locations
+
+        employee_range = getattr(criteria, "employee_range", None)
+        if employee_range is not None:
+            low = getattr(employee_range, "min", None)
+            high = getattr(employee_range, "max", None)
+            if low is not None or high is not None:
+                payload["organization_num_employees_ranges"] = [
+                    f"{int(low or 1)},{int(high or 100000)}"
+                ]
+
+        try:
+            response = requests.post(
+                f"{self.base_url}/mixed_companies/search",
+                json=payload,
+                headers=self._headers(),
+                timeout=self.timeout_seconds,
+            )
+            response.raise_for_status()
+            body = response.json()
+        except requests.HTTPError as exc:
+            status = getattr(exc.response, "status_code", "?")
+            snippet = (getattr(exc.response, "text", "") or "")[:300]
+            logger.error(
+                "Apollo mixed_companies/search failed: HTTP %s | payload=%s | body=%s",
+                status, payload, snippet,
+            )
+            return []
+        except Exception as exc:
+            logger.error("Apollo mixed_companies/search error: %s | payload=%s", exc, payload)
+            return []
+
+        logger.info(
+            "Apollo mixed_companies/search ok: %s orgs returned (payload=%s)",
+            len(body.get("organizations", []) or []) + len(body.get("accounts", []) or []),
+            payload,
+        )
+
+        # The endpoint splits results across two keys depending on whether the
+        # company already exists in the caller's Apollo account.
+        organizations = list(body.get("organizations", []) or []) + list(
+            body.get("accounts", []) or []
+        )
+
+        accounts: list[DiscoveredAccount] = []
+        seen: set[str] = set()
+        for org in organizations[:limit]:
+            name = str(org.get("name") or "").strip()
+            domain = str(
+                org.get("primary_domain") or org.get("website_url") or ""
+            ).strip()
+            domain = re.sub(r"^https?://", "", domain).split("/")[0]
+            if domain.startswith("www."):
+                domain = domain[4:]
+            if not name or _is_placeholder_domain(domain):
+                continue
+            if domain in seen:
+                continue
+            seen.add(domain)
+
+            location = ", ".join(
+                part
+                for part in (org.get("city"), org.get("state"), org.get("country"))
+                if part
+            ) or "Unknown"
+
+            accounts.append(
+                DiscoveredAccount(
+                    account_id=stable_id("apollo", str(org.get("id") or domain)),
+                    icp_id=icp.icp_id,
+                    company_name=name,
+                    website=f"https://{domain}",
+                    linkedin_url=org.get("linkedin_url"),
+                    industry=str(org.get("industry") or "Unknown"),
+                    location=location,
+                    employee_count=int(org.get("estimated_num_employees") or 0),
+                    revenue_range=None,
+                    source="apollo",
+                    fit_score=0,
+                    fit_reasons=["matched ICP filters via Apollo organization search"],
+                    status="new",
+                )
+            )
+        return accounts
+
+
+@dataclass
+class ApolloContactProvider:
+    """Real decision-makers from Apollo's People API.
+
+    Two-step, because Apollo's search endpoint deliberately withholds contact
+    details:
+
+    1. POST /mixed_people/search  -> identities, titles, seniority, LinkedIn URLs.
+       This endpoint does NOT return email addresses, and on some plans the last
+       name is masked.
+    2. POST /people/bulk_match    -> reveals verified emails for those people.
+       This consumes Apollo credits, so it is optional via `reveal_emails`.
+
+    Accounts without a real website are skipped: Apollo is queried by company
+    domain, and the fabricated "<slug>.example.com" domains produced elsewhere
+    would return nothing (or, worse, match an unrelated company).
+    """
+
+    api_key: str
+    name: str = "apollo"
+    base_url: str = "https://api.apollo.io/api/v1"
+    timeout_seconds: float = 20.0
+    contacts_per_account: int = 5
+    reveal_emails: bool = True
+
+    # ------------------------------------------------------------------
+    def _headers(self) -> dict[str, str]:
+        return {
+            "Content-Type": "application/json",
+            "Cache-Control": "no-cache",
+            "accept": "application/json",
+            "x-api-key": self.api_key,
+        }
+
+    def search_contacts(
+        self,
+        accounts: list[DiscoveredAccount],
+        target_titles: list[str],
+        target_seniorities: list[str],
+    ) -> list[DiscoveredContact]:
+        if not self.api_key:
+            return []
+
+        contacts: list[DiscoveredContact] = []
+        for account in accounts:
+            domain = _company_email_domain(account)
+            if _is_placeholder_domain(domain):
+                continue
+            people = self._search_people(domain, target_titles, target_seniorities)
+            if not people:
+                continue
+            if self.reveal_emails:
+                people = self._reveal_emails(people)
+            for person in people:
+                contact = self._to_contact(account, person, target_titles, target_seniorities)
+                if contact is not None:
+                    contacts.append(contact)
+        return contacts
+
+    # ------------------------------------------------------------------
+    def _search_people(
+        self,
+        domain: str,
+        target_titles: list[str],
+        target_seniorities: list[str],
+    ) -> list[dict[str, Any]]:
+        payload: dict[str, Any] = {
+            "q_organization_domains_list": [domain],
+            "page": 1,
+            "per_page": max(1, min(self.contacts_per_account, 100)),
+        }
+        if target_titles:
+            payload["person_titles"] = target_titles
+        apollo_seniorities = [
+            _APOLLO_TARGET_SENIORITY_MAP[s.lower()]
+            for s in target_seniorities
+            if s.lower() in _APOLLO_TARGET_SENIORITY_MAP
+        ]
+        if apollo_seniorities:
+            payload["person_seniorities"] = sorted(set(apollo_seniorities))
+
+        try:
+            # Apollo deprecated /mixed_people/search for API callers; the current
+            # People Search endpoint is /mixed_people/api_search (same params,
+            # no credit cost, requires a master API key).
+            response = requests.post(
+                f"{self.base_url}/mixed_people/api_search",
+                json=payload,
+                headers=self._headers(),
+                timeout=self.timeout_seconds,
+            )
+            response.raise_for_status()
+            body = response.json()
+            # The endpoint splits results across "people" (net-new prospects) and
+            # "contacts" (records already saved in the Apollo workspace).
+            people = list(body.get("people", []) or []) + list(
+                body.get("contacts", []) or []
+            )
+            logger.info(
+                "Apollo mixed_people/api_search ok: %s people for domain=%s",
+                len(people), domain,
+            )
+            return people
+        except requests.HTTPError as exc:
+            status = getattr(exc.response, "status_code", "?")
+            snippet = (getattr(exc.response, "text", "") or "")[:300]
+            logger.error(
+                "Apollo mixed_people/api_search failed: HTTP %s | domain=%s | body=%s",
+                status, domain, snippet,
+            )
+            return []
+        except Exception as exc:
+            # Network failure, bad key (401) or rate limit (429): fall through
+            # with no contacts rather than breaking the discovery run.
+            logger.error("Apollo mixed_people/api_search error: %s | domain=%s", exc, domain)
+            return []
+
+    def _reveal_emails(self, people: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Enrich search hits so email addresses are populated."""
+        details = [
+            {"id": person.get("id")}
+            for person in people
+            if person.get("id")
+        ]
+        if not details:
+            return people
+        try:
+            response = requests.post(
+                f"{self.base_url}/people/bulk_match",
+                json={"details": details, "reveal_personal_emails": False},
+                headers=self._headers(),
+                timeout=self.timeout_seconds,
+            )
+            response.raise_for_status()
+            matches = response.json().get("matches", []) or []
+        except requests.HTTPError as exc:
+            status = getattr(exc.response, "status_code", "?")
+            snippet = (getattr(exc.response, "text", "") or "")[:300]
+            logger.error(
+                "Apollo people/bulk_match failed: HTTP %s | body=%s", status, snippet,
+            )
+            return people
+        except Exception as exc:
+            logger.error("Apollo people/bulk_match error: %s", exc)
+            return people
+
+        by_id = {m.get("id"): m for m in matches if isinstance(m, dict) and m.get("id")}
+        merged: list[dict[str, Any]] = []
+        for person in people:
+            match = by_id.get(person.get("id"))
+            merged.append({**person, **match} if match else person)
+        return merged
+
+    # ------------------------------------------------------------------
+    def _to_contact(
+        self,
+        account: DiscoveredAccount,
+        person: dict[str, Any],
+        target_titles: list[str],
+        target_seniorities: list[str],
+    ) -> DiscoveredContact | None:
+        full_name = str(
+            person.get("name")
+            or " ".join(
+                part
+                for part in (person.get("first_name"), person.get("last_name"))
+                if part
+            )
+        ).strip()
+        title = str(person.get("title") or "").strip()
+        if not full_name or not title:
+            return None
+
+        seniority = _APOLLO_SENIORITY_MAP.get(
+            str(person.get("seniority") or "").lower()
+        ) or _infer_seniority_from_title(title)
+        if target_seniorities and seniority not in target_seniorities:
+            return None
+
+        # Apollo returns department slugs such as "master_sales" or
+        # "master_information_technology"; strip the prefix and title-case.
+        departments = person.get("departments") or []
+        if departments:
+            slug = str(departments[0])
+            if slug.startswith("master_"):
+                slug = slug[len("master_") :]
+            department = slug.replace("_", " ").title()
+        else:
+            department = "Sales" if "sales" in title.lower() else "Other"
+
+        email = person.get("email")
+        email_status = str(person.get("email_status") or "").lower()
+        if email in {"email_not_unlocked@domain.com", ""}:
+            email, email_status = None, "locked"
+
+        # Confidence reflects how much verified detail Apollo actually returned.
+        confidence = 55
+        if email and email_status == "verified":
+            confidence = 90
+        elif email:
+            confidence = 75
+        if person.get("linkedin_url"):
+            confidence = min(100, confidence + 5)
+
+        lowered_title = title.lower()
+        persona_score = 60
+        if target_titles:
+            if any(t.lower() == lowered_title for t in target_titles):
+                persona_score = 95
+            elif any(t.lower() in lowered_title for t in target_titles):
+                persona_score = 80
+
+        apollo_id = str(person.get("id") or full_name)
+        return DiscoveredContact(
+            contact_id=stable_id("apollo_contact", f"{account.account_id}:{apollo_id}"),
+            account_id=account.account_id,
+            full_name=full_name,
+            title=title,
+            department=department,
+            seniority=seniority,
+            email=email,
+            linkedin_url=person.get("linkedin_url"),
+            phone=person.get("phone_number"),
+            email_verification_status=email_status or "unknown",
+            phone_verification_status="unknown",
+            contact_status="active",
+            is_former_employee=False,
+            confidence=confidence,
+            persona_match_score=persona_score,
+            source="apollo",
+            status="new" if email else "needs_verification",
+        )
 
 
 @dataclass

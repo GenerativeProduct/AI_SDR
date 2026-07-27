@@ -4745,7 +4745,7 @@ def icp_agent_tab(base_url: str) -> None:
                                 enrichment_payload = st.session_state.get("enrichment_payload", {})
                                 pipeline_result = api_post_json(
                                     base_url,
-                                    "/sdr/pipeline/run",
+                                    "/sdr/pipeline/run?sync=true",
                                     {
                                         "icp_payload": payload,
                                         "discovery_limit": 3,
@@ -5066,7 +5066,7 @@ def enrichment_agent_tab(base_url: str) -> None:
                 try:
                     result = api_post_json(
                         base_url,
-                        "/sdr/pipeline/run",
+                        "/sdr/pipeline/run?sync=true",
                         {
                             "icp_payload": icp_payload,
                             "discovery_limit": int(pipeline_limit),
@@ -5802,21 +5802,23 @@ def main() -> None:
 
     tab_defs: list[tuple[str, Any]] = [
         ("AI SDR Chatbot", icp_agent_tab),
-        ("Structured", structured_tab),
-        ("Unstructured", unstructured_tab),
-        ("OpenSearch", opensearch_tab),
-        ("Transformations", lambda base_url: transformations_tab(base_url)),
+        # --- Other tabs hidden: only "AI SDR Chatbot" is shown in this build. ---
+        # To restore, uncomment the entries below (and the conditional blocks).
+        # ("Structured", structured_tab),
+        # ("Unstructured", unstructured_tab),
+        # ("OpenSearch", opensearch_tab),
+        # ("Transformations", lambda base_url: transformations_tab(base_url)),
     ]
-    if user_mode in {"Data Science", "MLOps"}:
-        tab_defs.extend(
-            [
-                ("Analytics", analytics_tab),
-            ]
-        )
-    tab_defs.append(("Connectors", connectors_tab))
-    if user_mode == "MLOps":
-        tab_defs.append(("MLOps", mlops_tab))
-    tab_defs.append(("Chat", chat_tab))
+    # if user_mode in {"Data Science", "MLOps"}:
+    #     tab_defs.extend(
+    #         [
+    #             ("Analytics", analytics_tab),
+    #         ]
+    #     )
+    # tab_defs.append(("Connectors", connectors_tab))
+    # if user_mode == "MLOps":
+    #     tab_defs.append(("MLOps", mlops_tab))
+    # tab_defs.append(("Chat", chat_tab))
 
     tabs = st.tabs([t[0] for t in tab_defs])
     for tab_obj, (label, fn) in zip(tabs, tab_defs):
