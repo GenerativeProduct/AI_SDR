@@ -20,6 +20,8 @@ $ErrorActionPreference = "Stop"
 Set-Location "C:\Users\sachi\Desktop\Desktop\Gen_Products\Latest_code\AI_SDR"
 
 $ApolloKey = ""
+$NeonDbUrl = ""
+$HunterApiKey = ""
 if (Test-Path ".\secrets.local.ps1") {
     . ".\secrets.local.ps1"
 }
@@ -40,6 +42,22 @@ if ($ApolloKey -ne "") {
 } else {
     $env:SDR_DISCOVERY_PROVIDER = "public"
     Write-Host "Discovery provider: PUBLIC (no Apollo key set)" -ForegroundColor Yellow
+}
+
+# --- Database: Neon Postgres if a connection string is set, else local SQLite ---
+if ($NeonDbUrl) {
+    $env:SDR_DATABASE_URL = $NeonDbUrl
+    Write-Host "Database: NEON POSTGRES" -ForegroundColor Green
+} else {
+    Write-Host "Database: local SQLite (no Neon URL set)" -ForegroundColor Yellow
+}
+
+# --- Email enrichment: Hunter.io if a key is set (optional waterfall provider) ---
+if ($HunterApiKey) {
+    $env:HUNTER_API_KEY = $HunterApiKey
+    Write-Host "Email provider: HUNTER" -ForegroundColor Green
+} else {
+    Write-Host "Email provider: none (no Hunter key set)" -ForegroundColor Yellow
 }
 
 # --- Core settings (same every run) ---

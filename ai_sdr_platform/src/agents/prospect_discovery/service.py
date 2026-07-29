@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+import hashlib
+import logging
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
 
 from ai_sdr_platform.src.agents.prospect_discovery.models import (
     AccountDiscoveryResult,
@@ -15,6 +18,22 @@ from ai_sdr_platform.src.agents.prospect_discovery.providers import (
     AccountDiscoveryProvider,
     ContactDiscoveryProvider,
 )
+from ai_sdr_platform.src.agents.prospect_discovery.identity import normalize_domain as _normalize_domain
+from ai_sdr_platform.src.shared.config import settings
+
+logger = logging.getLogger("sdr.prospect_discovery")
+
+
+def icp_signature(icp) -> str:
+    """Stable cache key from the ICP's account criteria (industries, geographies,
+    employee range). Same criteria -> same signature -> reuse cached results."""
+    crit = icp.account_criteria
+    industries = sorted(v.strip().lower() for v in (crit.industries or []) if v.strip())
+    geographies = sorted(v.strip().lower() for v in (crit.geographies or []) if v.strip())
+    emp = crit.employee_range
+    emp_key = f"{getattr(emp, 'min', None)}-{getattr(emp, 'max', None)}" if emp else "any"
+    raw = "|".join(["ind:" + ",".join(industries), "geo:" + ",".join(geographies), "emp:" + emp_key])
+    return hashlib.sha1(raw.encode()).hexdigest()[:16]
 
 MOCK_COMPANIES = [
     {"account_id": "acc_001", "company_name": "Acme SaaS", "website": "https://acmesaas.com", "linkedin_url": "https://linkedin.com/company/acme-saas", "industry": "SaaS", "location": "North America", "employee_count": 320, "revenue_range": "mid-market"},
@@ -58,6 +77,44 @@ class ProspectDiscoveryService:
     repository: ProspectDiscoveryRepository
     account_provider: AccountDiscoveryProvider | None = None
     contact_provider: ContactDiscoveryProvider | None = None
+    email_providers: list = field(default_factory=list)  # waterfall: Hunter, etc.
+
+    def _apply_email_waterfall(
+        self, contacts: list[DiscoveredContact], accounts: list
+    ) -> None:
+        """Fill missing emails and verify unverified ones using the available
+        email providers in priority order (stop at first confident result)."""
+        providers = [p for p in self.email_providers if getattr(p, "is_available", lambda: False)()]
+        if not providers or not contacts:
+            return
+        domain_by_account = {
+            a.account_id: _normalize_domain(getattr(a, "website", None))
+            for a in accounts
+        }
+        found, verified = 0, 0
+        for contact in contacts:
+            domain = domain_by_account.get(contact.account_id)
+            if not contact.email and domain:
+                for provider in providers:
+                    result = provider.find_email(contact.full_name, domain)
+                    if result and result.email:
+                        contact.email = result.email
+                        contact.email_verification_status = result.status or "unverified"
+                        contact.source = f"{contact.source}+{provider.name}"
+                        found += 1
+                        break
+            elif contact.email and contact.email_verification_status != "verified":
+                for provider in providers:
+                    status = provider.verify_email(contact.email)
+                    if status:
+                        contact.email_verification_status = status
+                        contact.source = f"{contact.source}+{provider.name}"
+                        verified += 1
+                        break
+        logger.info(
+            "Email waterfall: %d emails found, %d verified (providers=%s)",
+            found, verified, ",".join(p.name for p in providers),
+        )
 
     def discover_accounts(self, request: DiscoveryRequest) -> AccountDiscoveryResult:
         if self.account_provider is not None:
@@ -143,13 +200,36 @@ class ProspectDiscoveryService:
                 for account in self.repository.list_accounts()
                 if account.account_id in account_id_set
             ]
-            contacts = self.contact_provider.search_contacts(
-                accounts,
-                target_titles or [],
-                target_seniorities or [],
+
+            # Cache-first: reuse fresh contacts already discovered for these
+            # accounts, and only call the external API for accounts we don't have
+            # fresh contacts for.
+            cached_contacts: list[DiscoveredContact] = []
+            accounts_to_fetch = accounts
+            if self._cache_enabled():
+                cached_contacts = self.repository.find_contacts_by_accounts(
+                    list(account_id_set), self._cache_cutoff()
+                )
+                have_fresh = {c.account_id for c in cached_contacts}
+                accounts_to_fetch = [a for a in accounts if a.account_id not in have_fresh]
+
+            fetched: list[DiscoveredContact] = []
+            if accounts_to_fetch:
+                fetched = self.contact_provider.search_contacts(
+                    accounts_to_fetch,
+                    target_titles or [],
+                    target_seniorities or [],
+                )
+                # Waterfall: enrich/verify emails via Hunter (etc.) before saving.
+                self._apply_email_waterfall(fetched, accounts_to_fetch)
+                for contact in fetched:
+                    self.repository.save_contact(contact)
+
+            logger.info(
+                "Contact discovery: %d from cache, %d from API (%d accounts fetched)",
+                len(cached_contacts), len(fetched), len(accounts_to_fetch),
             )
-            for contact in contacts:
-                self.repository.save_contact(contact)
+            contacts = cached_contacts + fetched
             contacts.sort(
                 key=lambda item: (item.persona_match_score, item.confidence),
                 reverse=True,
@@ -226,25 +306,58 @@ class ProspectDiscoveryService:
         self, request: DiscoveryRequest
     ) -> AccountDiscoveryResult:
         icp = request.icp_definition
-        candidates = self.account_provider.search_accounts(icp, request.limit * 3)
+        signature = icp_signature(icp)
         results: list[DiscoveredAccount] = []
-        for candidate in candidates:
-            score, reasons = self._score_account(candidate, icp)
-            candidate.fit_score = score
-            candidate.fit_reasons = list(
-                dict.fromkeys([*candidate.fit_reasons, *reasons])
-            )
-            if score <= 0 or self._is_excluded(candidate, icp):
-                continue
-            if self._is_duplicate_account(results, candidate):
-                continue
-            self.repository.save_account(candidate)
-            results.append(candidate)
+
+        # 1) Cache-first: reuse fresh accounts previously discovered for this ICP.
+        cached_count = 0
+        if self._cache_enabled():
+            cutoff = self._cache_cutoff()
+            for cached in self.repository.find_accounts_by_signature(signature, cutoff):
+                if self._is_excluded(cached, icp) or self._is_duplicate_account(results, cached):
+                    continue
+                cached.icp_id = icp.icp_id
+                results.append(cached)
+            cached_count = len(results)
+
+        # 2) Only call the external API for the remaining gap.
+        api_count = 0
+        if len(results) < request.limit:
+            candidates = self.account_provider.search_accounts(icp, request.limit * 3)
+            for candidate in candidates:
+                score, reasons = self._score_account(candidate, icp)
+                candidate.fit_score = score
+                candidate.fit_reasons = list(
+                    dict.fromkeys([*candidate.fit_reasons, *reasons])
+                )
+                if score <= 0 or self._is_excluded(candidate, icp):
+                    continue
+                if self._is_duplicate_account(results, candidate):
+                    continue
+                self.repository.save_account(candidate, icp_signature=signature)
+                results.append(candidate)
+                api_count += 1
+
+        logger.info(
+            "Account discovery: %d from cache, %d from API (signature=%s)",
+            cached_count, api_count, signature,
+        )
         results.sort(key=lambda item: item.fit_score, reverse=True)
         return AccountDiscoveryResult(
             accounts=results[: request.limit],
             total=len(results),
         )
+
+    @staticmethod
+    def _cache_enabled() -> bool:
+        return bool(getattr(settings, "discovery_cache_enabled", True))
+
+    @staticmethod
+    def _cache_cutoff() -> datetime:
+        # Naive UTC to match the naive DateTime columns (avoids tz-mismatch in the
+        # SQL comparison on Postgres).
+        days = int(getattr(settings, "cache_ttl_days", 30))
+        return datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
 
     @staticmethod
     def _score_account(account: DiscoveredAccount, icp) -> tuple[int, list[str]]:

@@ -8,7 +8,12 @@ from ai_sdr_platform.src.agents.enrichment.models import (
     EnrichmentResult,
 )
 from ai_sdr_platform.src.agents.enrichment.repository import SQLAlchemyEnrichmentRepository
-from ai_sdr_platform.src.agents.enrichment.service import DirectOpenSearchProvider, EnrichmentService
+from ai_sdr_platform.src.agents.enrichment.service import (
+    DirectOpenSearchProvider,
+    EnrichmentService,
+    SearxngSearchProvider,
+)
+from ai_sdr_platform.src.shared.config import settings
 
 router = APIRouter(prefix="/enrichment", tags=["enrichment-agent"])
 _repository = SQLAlchemyEnrichmentRepository()
@@ -23,11 +28,20 @@ def configure_enrichment_service(
     role: str = "viewer",
 ) -> EnrichmentService:
     global _service
+    # Prefer the optional OpenSearch backend when present; otherwise fall back to
+    # a local SearXNG instance so enrichment still does real web research instead
+    # of the do-nothing Noop provider.
+    if opensearch_web is not None:
+        search_provider = DirectOpenSearchProvider(
+            opensearch_web, tenant_id=tenant_id, role=role
+        )
+    elif settings.enrichment_search_provider == "searxng" and settings.enrichment_searxng_url:
+        search_provider = SearxngSearchProvider(base_url=settings.enrichment_searxng_url)
+    else:
+        search_provider = None
     _service = EnrichmentService(
         repository=_repository,
-        search_provider=DirectOpenSearchProvider(opensearch_web, tenant_id=tenant_id, role=role)
-        if opensearch_web is not None
-        else None,
+        search_provider=search_provider,
         llm_router=llm_router,
     )
     return _service
@@ -59,6 +73,7 @@ def enrichment_status(
     service: EnrichmentService = Depends(get_enrichment_service),
 ) -> dict:
     provider = service.search_provider
+    is_searxng = provider is not None and provider.__class__.__name__ == "SearxngSearchProvider"
     opensearch_web = getattr(provider, "opensearch_web", None)
     configured_provider = (
         opensearch_web.configured_provider()
@@ -76,20 +91,25 @@ def enrichment_status(
         else False
     )
     live_search_configured = bool(
-        configured_provider
-        and configured_provider != "manual_urls"
-        and available_provider_chain
+        is_searxng
+        or (
+            configured_provider
+            and configured_provider != "manual_urls"
+            and available_provider_chain
+        )
     )
     return {
         "search_provider_configured": provider is not None,
         "search_provider": provider.__class__.__name__ if provider is not None else "NoopSearchProvider",
-        "configured_web_provider": configured_provider,
-        "available_web_provider_chain": available_provider_chain,
+        "configured_web_provider": configured_provider or ("searxng" if is_searxng else None),
+        "available_web_provider_chain": available_provider_chain or (["searxng"] if is_searxng else []),
         "live_search_configured": live_search_configured,
         "opensearch_index_available": opensearch_available,
         "llm_configured": service.llm_router is not None,
         "detail": (
-            "Enrichment will use live web retrieval. OpenSearch indexing is also available."
+            "Enrichment is using live SearXNG web search."
+            if is_searxng
+            else "Enrichment will use live web retrieval. OpenSearch indexing is also available."
             if live_search_configured and opensearch_available
             else "Enrichment will use live web retrieval directly; OpenSearch indexing is not available."
             if live_search_configured

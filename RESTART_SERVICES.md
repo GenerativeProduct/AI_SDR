@@ -96,13 +96,31 @@ Open **http://localhost:5173** — login `admin@sdr.local` / `admin123`.
 
 ---
 
+## 7. Streamlit UI  (Terminal 10 — alternative to the React frontend)
+
+The legacy Streamlit UI (`app.py`). Use this **instead of** the React frontend (Terminal 9) —
+pick one, they're two UIs for the same backend on different ports. Needs the venv active:
+
+```powershell
+cd C:\Users\sachi\Desktop\Desktop\Gen_Products\Latest_code\AI_SDR
+.venv\Scripts\Activate.ps1
+streamlit run app.py --server.port 8501
+```
+
+Streamlit opens **http://localhost:8501** automatically. The SDR Backend (section 4) must be
+running on :8011 first. In the app's sidebar, set **AI SDR Backend URL** to `http://127.0.0.1:8011`.
+
+---
+
 ## Order recap
 
-**Short mode:** 1 (docker start) → 4-skip → backend (4/step) → frontend
-`docker start opensearch-sdr searxng-sdr` → `.\start-sdr-backend.ps1` → `npm run dev`
+**Short mode:** 1 (docker start) → backend → a UI
+`docker start opensearch-sdr searxng-sdr` → `.\start-sdr-backend.ps1` → `npm run dev` (React) **or** `streamlit run app.py --server.port 8501` (Streamlit)
 
-**Full flow:** OpenSearch+SearXNG → MetaRank → Temporal → Backend → Worker → Frontend
-(sections 1 → 2 → 3 → 4 → 5 → 6 above)
+**Full flow:** OpenSearch+SearXNG → MetaRank → Temporal → Backend → Worker → UI
+(sections 1 → 2 → 3 → 4 → 5 → 6 or 7 above)
+
+> **UI choice:** run the React frontend (section 6, :5173) **or** Streamlit (section 7, :8501), not both.
 
 ## Stopping everything
 
@@ -110,4 +128,4 @@ Open **http://localhost:5173** — login `admin@sdr.local` / `admin123`.
 docker stop opensearch-sdr searxng-sdr
 cd C:\Users\sachi\Desktop\Desktop\Gen_Products\Latest_code\AI_SDR\metarank\sdr; docker compose down
 ```
-Then Ctrl+C in the Temporal, backend, worker, and frontend terminals.
+Then Ctrl+C in the Temporal, backend, worker, and UI (React or Streamlit) terminals.

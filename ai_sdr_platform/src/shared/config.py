@@ -2,12 +2,18 @@ from dataclasses import dataclass
 import os
 
 
+# A single connection string can point every agent's store at the same database
+# (e.g. a hosted Neon/Postgres). Each per-agent SDR_*_DATABASE_URL still overrides
+# this when set, so nothing changes for anyone who leaves SDR_DATABASE_URL unset.
+_DEFAULT_DATABASE_URL = os.getenv("SDR_DATABASE_URL", "")
+
+
 @dataclass(frozen=True)
 class SDRSettings:
     app_name: str = os.getenv("SDR_APP_NAME", "ai-sdr-platform")
     environment: str = os.getenv("SDR_ENVIRONMENT", "local")
-    icp_database_url: str = os.getenv("SDR_ICP_DATABASE_URL", "")
-    discovery_database_url: str = os.getenv("SDR_DISCOVERY_DATABASE_URL", "")
+    icp_database_url: str = os.getenv("SDR_ICP_DATABASE_URL", "") or _DEFAULT_DATABASE_URL
+    discovery_database_url: str = os.getenv("SDR_DISCOVERY_DATABASE_URL", "") or _DEFAULT_DATABASE_URL
     discovery_provider: str = os.getenv("SDR_DISCOVERY_PROVIDER", "public")
     discovery_sec_user_agent: str = os.getenv("SDR_DISCOVERY_SEC_USER_AGENT", "")
     discovery_companies_house_api_key: str = os.getenv(
@@ -37,8 +43,19 @@ class SDRSettings:
     discovery_timeout_seconds: float = float(
         os.getenv("SDR_DISCOVERY_TIMEOUT_SECONDS", "15")
     )
-    enrichment_database_url: str = os.getenv("SDR_ENRICHMENT_DATABASE_URL", "")
-    intelligence_database_url: str = os.getenv("SDR_INTELLIGENCE_DATABASE_URL", "")
+    # Optional email-enrichment providers (waterfall). Absent key => provider is
+    # not built and is skipped. Hunter finds/verifies emails; ZoomInfo is a stub
+    # for a future enterprise integration.
+    hunter_api_key: str = os.getenv("HUNTER_API_KEY", "")
+    zoominfo_api_key: str = os.getenv("ZOOMINFO_API_KEY", "")
+    # Cache-first discovery: reuse DB records younger than the TTL before calling
+    # external APIs. Set SDR_DISCOVERY_CACHE_ENABLED=false to always hit the API.
+    discovery_cache_enabled: bool = (
+        os.getenv("SDR_DISCOVERY_CACHE_ENABLED", "true").lower() == "true"
+    )
+    cache_ttl_days: int = int(os.getenv("SDR_CACHE_TTL_DAYS", "30"))
+    enrichment_database_url: str = os.getenv("SDR_ENRICHMENT_DATABASE_URL", "") or _DEFAULT_DATABASE_URL
+    intelligence_database_url: str = os.getenv("SDR_INTELLIGENCE_DATABASE_URL", "") or _DEFAULT_DATABASE_URL
     intelligence_metarank_url: str = os.getenv("SDR_INTELLIGENCE_METARANK_URL", "")
     intelligence_metarank_model: str = os.getenv(
         "SDR_INTELLIGENCE_METARANK_MODEL", "sdr-prospect-ranker"
@@ -71,8 +88,8 @@ class SDRSettings:
     intelligence_qualification_model_version: str = os.getenv(
         "SDR_INTELLIGENCE_QUALIFICATION_MODEL_VERSION", "unconfigured"
     )
-    qualification_database_url: str = os.getenv("SDR_QUALIFICATION_DATABASE_URL", "")
-    outreach_database_url: str = os.getenv("SDR_OUTREACH_DATABASE_URL", "")
+    qualification_database_url: str = os.getenv("SDR_QUALIFICATION_DATABASE_URL", "") or _DEFAULT_DATABASE_URL
+    outreach_database_url: str = os.getenv("SDR_OUTREACH_DATABASE_URL", "") or _DEFAULT_DATABASE_URL
     outreach_provider: str = os.getenv("SDR_OUTREACH_PROVIDER", "dry_run")
     outreach_sender_name: str = os.getenv("SDR_OUTREACH_SENDER_NAME", "SDR Team")
     outreach_from_email: str = os.getenv("SDR_OUTREACH_FROM_EMAIL", "")
@@ -103,7 +120,7 @@ class SDRSettings:
     outreach_temporal_task_queue: str = os.getenv(
         "SDR_OUTREACH_TEMPORAL_TASK_QUEUE", "sdr-outreach"
     )
-    conversation_database_url: str = os.getenv("SDR_CONVERSATION_DATABASE_URL", "")
+    conversation_database_url: str = os.getenv("SDR_CONVERSATION_DATABASE_URL", "") or _DEFAULT_DATABASE_URL
     conversation_llm_base_url: str = os.getenv(
         "SDR_CONVERSATION_LLM_BASE_URL", "http://127.0.0.1:11434"
     )
@@ -113,8 +130,8 @@ class SDRSettings:
     conversation_llm_timeout_seconds: float = float(
         os.getenv("SDR_CONVERSATION_LLM_TIMEOUT_SECONDS", "90")
     )
-    follow_up_database_url: str = os.getenv("SDR_FOLLOW_UP_DATABASE_URL", "")
-    meeting_database_url: str = os.getenv("SDR_MEETING_DATABASE_URL", "")
+    follow_up_database_url: str = os.getenv("SDR_FOLLOW_UP_DATABASE_URL", "") or _DEFAULT_DATABASE_URL
+    meeting_database_url: str = os.getenv("SDR_MEETING_DATABASE_URL", "") or _DEFAULT_DATABASE_URL
     meeting_provider: str = os.getenv("SDR_MEETING_PROVIDER", "dry_run")
     meeting_google_calendar_id: str = os.getenv(
         "SDR_MEETING_GOOGLE_CALENDAR_ID", "primary"
@@ -157,7 +174,7 @@ class SDRSettings:
     meeting_temporal_task_queue: str = os.getenv(
         "SDR_MEETING_TEMPORAL_TASK_QUEUE", "sdr-meetings"
     )
-    crm_database_url: str = os.getenv("SDR_CRM_DATABASE_URL", "")
+    crm_database_url: str = os.getenv("SDR_CRM_DATABASE_URL", "") or _DEFAULT_DATABASE_URL
     crm_provider: str = os.getenv("SDR_CRM_PROVIDER", "dry_run")
     crm_twenty_base_url: str = os.getenv(
         "SDR_CRM_TWENTY_BASE_URL", "https://api.twenty.com"
@@ -175,6 +192,14 @@ class SDRSettings:
     enrichment_collection: str = os.getenv("SDR_ENRICHMENT_COLLECTION", "sdr_enrichment")
     enrichment_top_k: int = int(os.getenv("SDR_ENRICHMENT_TOP_K", "8"))
     enrichment_search_provider: str = os.getenv("SDR_ENRICHMENT_SEARCH_PROVIDER", "")
+    # Cache-first enrichment: reuse a fresh, complete enrichment for a company
+    # instead of re-running SearXNG + LLM every time (avoids search-engine throttling).
+    enrichment_cache_enabled: bool = (
+        os.getenv("SDR_ENRICHMENT_CACHE_ENABLED", "true").lower() == "true"
+    )
+    enrichment_searxng_url: str = os.getenv(
+        "SDR_ENRICHMENT_SEARXNG_URL", os.getenv("SEARXNG_BASE_URL", "")
+    )
     enrichment_llm_provider: str = os.getenv("SDR_ENRICHMENT_LLM_PROVIDER", "ollama_local")
     enrichment_llm_model: str = os.getenv("SDR_ENRICHMENT_LLM_MODEL", "llama3.2:3b")
     default_weight_industry_fit: float = float(os.getenv("SDR_WEIGHT_INDUSTRY_FIT", "0.30"))
@@ -183,7 +208,7 @@ class SDRSettings:
     default_weight_geo_fit: float = float(os.getenv("SDR_WEIGHT_GEO_FIT", "0.10"))
     default_weight_pain_point_fit: float = float(os.getenv("SDR_WEIGHT_PAIN_POINT_FIT", "0.15"))
     auth_enabled: bool = os.getenv("SDR_AUTH_ENABLED", "false").lower() == "true"
-    auth_database_url: str = os.getenv("SDR_AUTH_DATABASE_URL", "")
+    auth_database_url: str = os.getenv("SDR_AUTH_DATABASE_URL", "") or _DEFAULT_DATABASE_URL
     auth_jwt_secret: str = os.getenv(
         "SDR_JWT_SECRET", "dev-change-me-in-production-use-32-chars-min"
     )
@@ -194,7 +219,7 @@ class SDRSettings:
     cors_origins: str = os.getenv(
         "SDR_CORS_ORIGINS", "http://localhost:5173,http://localhost:5174,http://localhost:5180"
     )
-    jobs_database_url: str = os.getenv("SDR_JOBS_DATABASE_URL", "")
+    jobs_database_url: str = os.getenv("SDR_JOBS_DATABASE_URL", "") or _DEFAULT_DATABASE_URL
 
 
 settings = SDRSettings()

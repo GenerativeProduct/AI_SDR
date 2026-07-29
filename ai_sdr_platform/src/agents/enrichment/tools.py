@@ -9,19 +9,28 @@ from ai_sdr_platform.src.agents.enrichment.models import (
 )
 
 
+def _clean_term(value: str | None) -> str:
+    """Drop placeholder values like 'Unknown' so they never pollute a query."""
+    v = (value or "").strip()
+    if v.lower() in {"unknown", "unknown industry", "unknown location", "n/a", "none"}:
+        return ""
+    return v
+
+
 def build_research_queries(account: EnrichmentAccount, contacts: list[EnrichmentContact]) -> list[str]:
     company = account.company_name.strip()
-    industry = account.industry or ""
-    location = account.location or ""
+    industry = _clean_term(account.industry)
+    location = _clean_term(account.location)
     base = [
         f'"{company}" official website products services',
         f'"{company}" recent news growth expansion',
-        f'"{company}" careers hiring {industry}',
+        f'"{company}" careers hiring {industry}'.strip(),
         f'"{company}" customer reviews competitors',
-        f'"{company}" leadership team {location}',
+        f'"{company}" leadership team {location}'.strip(),
     ]
     for contact in contacts[:3]:
-        base.append(f'"{contact.full_name}" "{company}" {contact.title or ""} LinkedIn')
+        title = _clean_term(contact.title)
+        base.append(f'"{contact.full_name}" "{company}" {title} LinkedIn'.strip())
     return list(dict.fromkeys(q.strip() for q in base if q.strip()))
 
 

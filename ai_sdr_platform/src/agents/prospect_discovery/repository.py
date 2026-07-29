@@ -1,17 +1,52 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+import logging
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Protocol
 
-from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text, create_engine, desc
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text, and_, create_engine, desc, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import declarative_base, sessionmaker
 
+logger = logging.getLogger("sdr.prospect_discovery")
+
+
+def _naive_utc(value: datetime | None) -> datetime:
+    """Normalize to naive UTC so it matches the naive DateTime columns (and the
+    cache TTL comparison). Prevents tz-aware vs naive mismatches on Postgres."""
+    dt = value or datetime.now(timezone.utc)
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
+
 from ai_sdr_platform.src.agents.prospect_discovery.models import DiscoveredAccount, DiscoveredContact
+from ai_sdr_platform.src.agents.prospect_discovery.identity import company_key, contact_key
 from ai_sdr_platform.src.shared.config import settings
 
 Base = declarative_base()
+
+
+def _merge_sources(existing_json: str | None, new_source: str | None) -> str:
+    """Union the set of provider names that contributed to a record. `new_source`
+    may be a '+'-joined combo (e.g. 'apollo+hunter') which is split into parts."""
+    try:
+        current = set(json.loads(existing_json) if existing_json else [])
+    except Exception:
+        current = set()
+    for part in str(new_source or "").split("+"):
+        part = part.strip()
+        if part:
+            current.add(part)
+    return json.dumps(sorted(current))
+
+
+def _prefer_text(new: object, old: object) -> object:
+    """Keep the new value unless it is blank/placeholder, then keep the old."""
+    if new in (None, "", "Unknown", "unknown", "unknown industry", "unknown location"):
+        return old
+    return new
 
 
 class DiscoveredAccountORM(Base):
@@ -32,6 +67,9 @@ class DiscoveredAccountORM(Base):
     fit_reasons_json = Column(Text)
     status = Column(String, default="new")
     discovered_at = Column(DateTime)
+    icp_signature = Column(String, index=True)  # cache key: which ICP produced this
+    company_key = Column(String, index=True)    # canonical identity (domain/slug)
+    sources = Column(Text)                        # JSON list of contributing providers
 
 
 class DiscoveredContactORM(Base):
@@ -56,6 +94,8 @@ class DiscoveredContactORM(Base):
     source = Column(String, default="mock")
     status = Column(String, default="new")
     discovered_at = Column(DateTime)
+    contact_key = Column(String, index=True)    # canonical identity (email/li/name)
+    sources = Column(Text)                        # JSON list of contributing providers
 
 
 class ProspectDiscoveryRepository(Protocol):
@@ -79,35 +119,206 @@ class SQLAlchemyProspectDiscoveryRepository:
         self.engine = create_engine(database_url, future=True, connect_args=connect_args)
         self.SessionLocal = sessionmaker(bind=self.engine, autoflush=False, autocommit=False, future=True)
         Base.metadata.create_all(self.engine)
+        self._ensure_cache_columns()
 
-    def save_account(self, account: DiscoveredAccount) -> DiscoveredAccount:
+    def _ensure_cache_columns(self) -> None:
+        """Idempotently add columns introduced after the tables already existed
+        (icp_signature, company_key/contact_key, sources). Safe to run every start."""
+        migrations = [
+            ("discovered_accounts", "icp_signature"),
+            ("discovered_accounts", "company_key"),
+            ("discovered_accounts", "sources"),
+            ("discovered_contacts", "contact_key"),
+            ("discovered_contacts", "sources"),
+        ]
+        for table, column in migrations:
+            self._add_column_if_missing(table, column)
+        self._backfill_identity_keys()
+        self._ensure_identity_indexes()
+
+    def _ensure_identity_indexes(self) -> None:
+        """Enforce one row per canonical key with a UNIQUE index when the data
+        allows it; fall back to a plain index if pre-Phase-3 duplicates block it
+        (the merge-on-save logic still prevents new duplicates either way)."""
+        targets = [
+            ("discovered_accounts", "company_key"),
+            ("discovered_contacts", "contact_key"),
+        ]
+        for table, column in targets:
+            unique = True
+            try:
+                with self.engine.begin() as conn:
+                    conn.execute(text(
+                        f"CREATE UNIQUE INDEX IF NOT EXISTS uq_{table}_{column} ON {table} ({column})"
+                    ))
+            except Exception as exc:
+                unique = False
+                logger.warning(
+                    "UNIQUE index on %s.%s blocked (pre-existing duplicates?): %s",
+                    table, column, str(exc)[:120],
+                )
+                try:
+                    with self.engine.begin() as conn:
+                        conn.execute(text(
+                            f"CREATE INDEX IF NOT EXISTS ix_{table}_{column} ON {table} ({column})"
+                        ))
+                except Exception:
+                    pass
+            logger.info("Identity index on %s.%s: %s", table, column, "UNIQUE" if unique else "non-unique")
+
+    def _add_column_if_missing(self, table: str, column: str) -> None:
+        try:
+            with self.engine.begin() as conn:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} VARCHAR"))
+        except Exception:
+            try:  # SQLite has no IF NOT EXISTS for columns
+                with self.engine.begin() as conn:
+                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} VARCHAR"))
+            except Exception:
+                pass
+
+    def _backfill_identity_keys(self) -> None:
+        """Populate canonical keys on rows saved before Phase 3 (one-time)."""
+        try:
+            with self.SessionLocal() as session:
+                acct_rows = session.query(DiscoveredAccountORM).filter(
+                    DiscoveredAccountORM.company_key.is_(None)
+                ).all()
+                for row in acct_rows:
+                    row.company_key = company_key(row.company_name, row.website)
+                    if not row.sources:
+                        row.sources = json.dumps([row.source] if row.source else [])
+                contact_rows = session.query(DiscoveredContactORM).filter(
+                    DiscoveredContactORM.contact_key.is_(None)
+                ).all()
+                for row in contact_rows:
+                    row.contact_key = contact_key(row.email, row.linkedin_url, row.full_name, row.account_id)
+                    if not row.sources:
+                        row.sources = json.dumps([row.source] if row.source else [])
+                if acct_rows or contact_rows:
+                    session.commit()
+                    logger.info(
+                        "Backfilled identity keys: %d accounts, %d contacts",
+                        len(acct_rows), len(contact_rows),
+                    )
+        except Exception as exc:
+            logger.error("Identity key backfill skipped: %s", exc)
+
+    def save_account(
+        self, account: DiscoveredAccount, icp_signature: str | None = None
+    ) -> DiscoveredAccount:
         data = account.model_dump()
         fit_reasons = data.pop("fit_reasons", [])
-        discovered_at = data.pop("discovered_at", datetime.now())
-        with self.SessionLocal() as session:
-            existing = session.query(DiscoveredAccountORM).filter_by(account_id=account.account_id).first()
-            if existing:
-                for key, value in data.items():
-                    setattr(existing, key, value)
+        discovered_at = _naive_utc(data.pop("discovered_at", None))
+        ckey = company_key(account.company_name, account.website)
+        new_source = account.source
+
+        def _merge(existing: DiscoveredAccountORM) -> None:
+            existing.company_name = _prefer_text(data.get("company_name"), existing.company_name)
+            existing.website = _prefer_text(data.get("website"), existing.website)
+            existing.linkedin_url = _prefer_text(data.get("linkedin_url"), existing.linkedin_url)
+            existing.industry = _prefer_text(data.get("industry"), existing.industry)
+            existing.location = _prefer_text(data.get("location"), existing.location)
+            existing.revenue_range = _prefer_text(data.get("revenue_range"), existing.revenue_range)
+            if (data.get("employee_count") or 0) > (existing.employee_count or 0):
+                existing.employee_count = data.get("employee_count")
+            if (data.get("fit_score") or 0) >= (existing.fit_score or 0):
+                existing.fit_score = data.get("fit_score")
                 existing.fit_reasons_json = json.dumps(fit_reasons)
-                existing.discovered_at = discovered_at
-            else:
-                session.add(DiscoveredAccountORM(**data, fit_reasons_json=json.dumps(fit_reasons), discovered_at=discovered_at))
-            session.commit()
+            existing.status = data.get("status") or existing.status
+            existing.company_key = ckey
+            existing.sources = _merge_sources(existing.sources, new_source)
+            existing.discovered_at = discovered_at
+            if icp_signature:
+                existing.icp_signature = icp_signature
+
+        def _lookup(session):
+            return (
+                session.query(DiscoveredAccountORM).filter_by(account_id=account.account_id).first()
+                or session.query(DiscoveredAccountORM).filter_by(company_key=ckey).first()
+            )
+
+        with self.SessionLocal() as session:
+            existing = _lookup(session)
+            if existing:
+                _merge(existing)
+                session.commit()
+                return account
+            session.add(DiscoveredAccountORM(
+                **data,
+                fit_reasons_json=json.dumps(fit_reasons),
+                discovered_at=discovered_at,
+                icp_signature=icp_signature,
+                company_key=ckey,
+                sources=json.dumps([new_source] if new_source else []),
+            ))
+            try:
+                session.commit()
+            except IntegrityError:
+                session.rollback()
+                existing = _lookup(session)
+                if existing:
+                    _merge(existing)
+                    session.commit()
         return account
 
     def save_contact(self, contact: DiscoveredContact) -> DiscoveredContact:
         data = contact.model_dump()
-        discovered_at = data.pop("discovered_at", datetime.now())
+        discovered_at = _naive_utc(data.pop("discovered_at", None))
+        ckey = contact_key(contact.email, contact.linkedin_url, contact.full_name, contact.account_id)
+        new_source = contact.source
+
+        def _merge(existing: DiscoveredContactORM) -> None:
+            existing.full_name = _prefer_text(data.get("full_name"), existing.full_name)
+            existing.title = _prefer_text(data.get("title"), existing.title)
+            existing.department = _prefer_text(data.get("department"), existing.department)
+            existing.seniority = _prefer_text(data.get("seniority"), existing.seniority)
+            existing.email = _prefer_text(data.get("email"), existing.email)
+            existing.linkedin_url = _prefer_text(data.get("linkedin_url"), existing.linkedin_url)
+            existing.phone = _prefer_text(data.get("phone"), existing.phone)
+            # Prefer a verified email status; never downgrade verified -> unverified.
+            incoming_status = data.get("email_verification_status")
+            if incoming_status == "verified":
+                existing.email_verification_status = "verified"
+            elif existing.email_verification_status != "verified":
+                existing.email_verification_status = incoming_status or existing.email_verification_status
+            existing.phone_verification_status = data.get("phone_verification_status") or existing.phone_verification_status
+            existing.contact_status = data.get("contact_status") or existing.contact_status
+            if (data.get("confidence") or 0) >= (existing.confidence or 0):
+                existing.confidence = data.get("confidence")
+            if (data.get("persona_match_score") or 0) >= (existing.persona_match_score or 0):
+                existing.persona_match_score = data.get("persona_match_score")
+            existing.status = data.get("status") or existing.status
+            existing.contact_key = ckey
+            existing.sources = _merge_sources(existing.sources, new_source)
+            existing.discovered_at = discovered_at
+
+        def _lookup(session):
+            return (
+                session.query(DiscoveredContactORM).filter_by(contact_key=ckey).first()
+                or session.query(DiscoveredContactORM).filter_by(contact_id=contact.contact_id).first()
+            )
+
         with self.SessionLocal() as session:
-            existing = session.query(DiscoveredContactORM).filter_by(contact_id=contact.contact_id).first()
+            existing = _lookup(session)
             if existing:
-                for key, value in data.items():
-                    setattr(existing, key, value)
-                existing.discovered_at = discovered_at
-            else:
-                session.add(DiscoveredContactORM(**data, discovered_at=discovered_at))
-            session.commit()
+                _merge(existing)
+                session.commit()
+                return contact
+            session.add(DiscoveredContactORM(
+                **data,
+                discovered_at=discovered_at,
+                contact_key=ckey,
+                sources=json.dumps([new_source] if new_source else []),
+            ))
+            try:
+                session.commit()
+            except IntegrityError:
+                session.rollback()
+                existing = _lookup(session)
+                if existing:
+                    _merge(existing)
+                    session.commit()
         return contact
 
     def list_accounts(self, icp_id: str | None = None) -> list[DiscoveredAccount]:
@@ -124,6 +335,40 @@ class SQLAlchemyProspectDiscoveryRepository:
             if account_id:
                 query = query.filter(DiscoveredContactORM.account_id == account_id)
             rows = query.order_by(desc(DiscoveredContactORM.discovered_at)).all()
+            return [self._to_contact_model(row) for row in rows]
+
+    def find_accounts_by_signature(
+        self, icp_signature: str, since: datetime
+    ) -> list[DiscoveredAccount]:
+        """Cache lookup: fresh accounts previously discovered for the same ICP."""
+        with self.SessionLocal() as session:
+            rows = (
+                session.query(DiscoveredAccountORM)
+                .filter(and_(
+                    DiscoveredAccountORM.icp_signature == icp_signature,
+                    DiscoveredAccountORM.discovered_at >= since,
+                ))
+                .order_by(desc(DiscoveredAccountORM.fit_score))
+                .all()
+            )
+            return [self._to_account_model(row) for row in rows]
+
+    def find_contacts_by_accounts(
+        self, account_ids: list[str], since: datetime
+    ) -> list[DiscoveredContact]:
+        """Cache lookup: fresh contacts already discovered for these accounts."""
+        if not account_ids:
+            return []
+        with self.SessionLocal() as session:
+            rows = (
+                session.query(DiscoveredContactORM)
+                .filter(and_(
+                    DiscoveredContactORM.account_id.in_(list(account_ids)),
+                    DiscoveredContactORM.discovered_at >= since,
+                ))
+                .order_by(desc(DiscoveredContactORM.persona_match_score))
+                .all()
+            )
             return [self._to_contact_model(row) for row in rows]
 
     @staticmethod

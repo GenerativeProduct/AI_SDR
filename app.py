@@ -98,6 +98,45 @@ def api_get(base_url: str, path: str, params: Optional[Dict[str, Any]] = None) -
     return resp.json()
 
 
+# Set to True only when debugging: when False, raw "Developer JSON" panels are
+# hidden from the UI so end users see clean profiles instead of JSON dumps.
+SHOW_DEVELOPER_JSON = False
+
+# US states + major cities offered in the ICP Geographies dropdown. These map
+# cleanly to Apollo's organization_locations filter.
+US_STATES = [
+    "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado",
+    "Connecticut", "Delaware", "Florida", "Georgia", "Hawaii", "Idaho",
+    "Illinois", "Indiana", "Iowa", "Kansas", "Kentucky", "Louisiana", "Maine",
+    "Maryland", "Massachusetts", "Michigan", "Minnesota", "Mississippi",
+    "Missouri", "Montana", "Nebraska", "Nevada", "New Hampshire", "New Jersey",
+    "New Mexico", "New York", "North Carolina", "North Dakota", "Ohio",
+    "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island", "South Carolina",
+    "South Dakota", "Tennessee", "Texas", "Utah", "Vermont", "Virginia",
+    "Washington", "West Virginia", "Wisconsin", "Wyoming", "Washington DC",
+]
+US_CITIES = [
+    "New York City", "Los Angeles", "Chicago", "Houston", "Phoenix",
+    "Philadelphia", "San Antonio", "San Diego", "Dallas", "Austin", "San Jose",
+    "San Francisco", "Seattle", "Denver", "Boston", "Atlanta", "Miami",
+    "Washington", "Portland", "Nashville", "Charlotte", "Raleigh", "Salt Lake City",
+]
+US_GEO_OPTIONS = ["United States"] + US_STATES + [f"{c} (city)" for c in US_CITIES]
+
+
+def _geo_to_apollo(values: list[str]) -> list[str]:
+    """Strip the ' (city)' UI suffix so Apollo receives clean location strings."""
+    return [v.replace(" (city)", "").strip() for v in values if v and v.strip()]
+
+
+def render_dev_json(label: str, data: Any) -> None:
+    """Render a collapsible raw-JSON debug panel, unless dev JSON is disabled."""
+    if not SHOW_DEVELOPER_JSON:
+        return
+    with st.expander(label, expanded=False):
+        st.json(data)
+
+
 def api_post_json(base_url: str, path: str, payload: Dict[str, Any]) -> Any:
     url = f"{base_url.rstrip('/')}{path}"
     resp = requests.post(url, json=payload, headers=_api_headers(), timeout=300)
@@ -3856,8 +3895,7 @@ def icp_agent_tab(base_url: str) -> None:
             ]
             if active_filters:
                 st.markdown("- Structured filters: " + " | ".join(active_filters))
-            with st.expander("Developer JSON - ICP", expanded=False):
-                st.json(icp_definition)
+            render_dev_json("Developer JSON - ICP", icp_definition)
 
         with st.expander("2. Prospect Discovery (Lead Sources + Fit Scoring)", expanded=True):
             accounts = result.get("discovered_accounts", [])
@@ -3865,41 +3903,87 @@ def icp_agent_tab(base_url: str) -> None:
             d1, d2 = st.columns(2)
             d1.metric("Matching Accounts", len(accounts))
             d2.metric("Matching Contacts", len(contacts))
-            st.markdown("- The Prospect Discovery Agent used the ICP to find matching accounts and likely buying contacts.")
+            st.caption("The Prospect Discovery Agent used your ICP to find matching companies and likely buying contacts.")
+
+            # Map account_id -> real company name so contacts show the company,
+            # not the internal apollo_ id.
+            account_name_by_id = {
+                acc.get("account_id"): acc.get("company_name")
+                for acc in accounts
+                if acc.get("account_id")
+            }
+
+            def _clean(value: str | None) -> str | None:
+                if not value:
+                    return None
+                return None if str(value).strip().lower() in {"unknown", "unknown industry", "unknown location", ""} else str(value)
+
             if accounts:
-                st.markdown("**Top matching accounts**")
-                for account in accounts[:5]:
-                    company_name = account.get("company_name") or "Unknown account"
-                    industry = account.get("industry") or "unknown industry"
-                    location = account.get("location") or "unknown location"
+                st.markdown("##### 🏢 Matching accounts")
+                for account in accounts[:12]:
+                    name = account.get("company_name") or "Unknown account"
+                    industry = _clean(account.get("industry"))
+                    location = _clean(account.get("location"))
                     fit_score = account.get("fit_score")
-                    fit_text = f"fit score {fit_score}" if fit_score is not None else "fit score not available"
-                    st.markdown(
-                        f"- {company_name} in {industry} / {location}, with {fit_text}."
-                    )
+                    website = account.get("website")
+                    with st.container(border=True):
+                        c1, c2 = st.columns([4, 1])
+                        with c1:
+                            st.markdown(f"**{name}**")
+                            meta = " · ".join([p for p in (industry, location) if p]) or "Details enriched in the next step"
+                            st.caption(meta)
+                            if website:
+                                st.caption(f"🔗 {website}")
+                        with c2:
+                            st.metric("Fit score", f"{fit_score}/100" if fit_score is not None else "—")
             else:
                 st.info("No matching accounts were found in the current discovery layer.")
 
             if contacts:
-                st.markdown("**Top matching contacts**")
-                for contact in contacts[:8]:
+                st.markdown("##### 👤 Matching contacts")
+                for contact in contacts[:15]:
                     full_name = contact.get("full_name") or "Unknown contact"
-                    title = contact.get("title") or "unknown title"
-                    company_name = contact.get("company_name") or contact.get("account_id") or "unknown account"
+                    title = _clean(contact.get("title")) or "Title not available"
+                    company_name = (
+                        contact.get("company_name")
+                        or account_name_by_id.get(contact.get("account_id"))
+                        or "—"
+                    )
                     confidence = contact.get("confidence")
                     persona_match = contact.get("persona_match_score")
-                    extra_parts = []
-                    if confidence is not None:
-                        extra_parts.append(f"confidence {confidence}")
-                    if persona_match is not None:
-                        extra_parts.append(f"persona match {persona_match}")
-                    extra = ", ".join(extra_parts) if extra_parts else "no additional scores"
-                    st.markdown(f"- {full_name} — {title} at {company_name}, with {extra}.")
+                    email = _clean(contact.get("email"))
+                    linkedin = contact.get("linkedin_url")
+                    with st.container(border=True):
+                        c1, c2, c3 = st.columns([4, 1, 1])
+                        with c1:
+                            st.markdown(f"**{full_name}**")
+                            st.caption(f"{title} · {company_name}")
+                            extras = []
+                            if email:
+                                extras.append(f"✉️ {email}")
+                            if linkedin:
+                                extras.append(f"[LinkedIn]({linkedin})")
+                            if extras:
+                                st.caption("  ·  ".join(extras))
+                        c2.metric("Confidence", f"{confidence}%" if confidence is not None else "—")
+                        c3.metric("Persona", f"{persona_match}%" if persona_match is not None else "—")
             else:
                 st.info("No matching contacts were returned for the discovered accounts.")
 
-            with st.expander("Developer JSON - Discovery", expanded=False):
-                st.json({"accounts": accounts, "contacts": contacts})
+            with st.expander("ℹ️ How is the fit score calculated?", expanded=False):
+                st.markdown(
+                    "**Fit score (0–100)** rewards how well a company matches your ICP:\n\n"
+                    "- **+40 industry match** — company industry matches your ICP industries "
+                    "(auto-credited for Apollo results, which are already filtered by industry keywords).\n"
+                    "- **+30 geography match** — company location matches your ICP geographies "
+                    "(auto-credited for Apollo results, already filtered by location).\n"
+                    "- **+30 company-size match** — employee count falls in your ICP employee range.\n\n"
+                    "**Contact scores:** *Confidence* reflects how complete/verified the contact record is "
+                    "(email and LinkedIn present raise it); *Persona match* reflects how well the person's "
+                    "title and seniority match your target job titles and seniority levels."
+                )
+
+            render_dev_json("Developer JSON - Discovery", {"accounts": accounts, "contacts": contacts})
 
         with st.expander("3. Prospect Intelligence (Prospect Enrichment Done)", expanded=True):
             try:
@@ -3973,8 +4057,7 @@ def icp_agent_tab(base_url: str) -> None:
                         st.markdown(f"- [{title}]({url})")
                         if snippet:
                             st.caption(snippet)
-                with st.expander(f"Developer JSON - Enrichment {idx}", expanded=False):
-                    st.json(enriched)
+                render_dev_json(f"Developer JSON - Enrichment {idx}", enriched)
 
         with st.expander("3b. Prospect Intelligence Scores, Intent, Recommendations", expanded=True):
             intelligence_items = result.get("prospect_intelligence", [])
@@ -4017,8 +4100,7 @@ def icp_agent_tab(base_url: str) -> None:
                 warnings = item.get("warnings", []) or []
                 if warnings:
                     st.warning(" | ".join(str(warning) for warning in warnings))
-                with st.expander(f"Developer JSON - Intelligence - {contact_name}", expanded=False):
-                    st.json(item)
+                render_dev_json(f"Developer JSON - Intelligence - {contact_name}", item)
 
         with st.expander("4. Qualification Hub (BANT / MEDDIC)", expanded=True):
             qualification_items = result.get("qualification_results", [])
@@ -4050,10 +4132,7 @@ def icp_agent_tab(base_url: str) -> None:
                 missing = item.get("missing_information", []) or []
                 if missing:
                     st.warning("Missing qualification evidence: " + "; ".join(missing))
-                with st.expander(
-                    f"Developer JSON - Qualification - {contact_name}", expanded=False
-                ):
-                    st.json(item)
+                render_dev_json(f"Developer JSON - Qualification - {contact_name}", item)
 
         with st.expander("5. Outreach & Conversation Hub - Outreach", expanded=True):
             campaigns = result.get("outreach_campaigns", [])
@@ -4144,8 +4223,7 @@ def icp_agent_tab(base_url: str) -> None:
                         st.rerun()
                     except Exception as exc:
                         st.error(f"Pause failed: {exc}")
-                with st.expander(f"Developer JSON - Campaign - {campaign_id}", expanded=False):
-                    st.json(campaign)
+                render_dev_json(f"Developer JSON - Campaign - {campaign_id}", campaign)
             for warning in result.get("warnings", []) or []:
                 st.warning(str(warning))
 
@@ -4464,10 +4542,7 @@ def icp_agent_tab(base_url: str) -> None:
                             st.rerun()
                         except Exception as exc:
                             st.error(f"Meeting cancellation failed: {exc}")
-                with st.expander(
-                    f"Developer JSON - Meeting - {meeting_id}", expanded=False
-                ):
-                    st.json(meeting)
+                render_dev_json(f"Developer JSON - Meeting - {meeting_id}", meeting)
 
         with st.expander("7. SDR Analytics", expanded=False):
             st.markdown(
@@ -4524,6 +4599,20 @@ def icp_agent_tab(base_url: str) -> None:
         )
         use_llm = st.toggle("Use LLM enrichment", value=True)
 
+        num_companies = st.number_input(
+            "Accounts to discover",
+            min_value=5,
+            max_value=100,
+            value=int(st.session_state.get("sdr_num_companies", 50)),
+            step=5,
+            key="sdr_num_companies",
+            help=(
+                "How many matching companies to pull from Apollo. Their contacts are "
+                "discovered automatically, and every discovered company is enriched. "
+                "Higher counts take longer (each company runs web enrichment + intelligence)."
+            ),
+        )
+
         input_mode = st.radio(
             "ICP input mode",
             options=["Manual Filters", "Natural Language Chat"],
@@ -4545,15 +4634,19 @@ def icp_agent_tab(base_url: str) -> None:
                 value=", ".join(filters.get("target_industries") or default_payload.get("industries") or ["SaaS", "B2B software"]),
                 key="manual_filter_industries",
             )
-            manual_geographies = mf2.text_input(
-                "Geographies",
-                value=", ".join(filters.get("geographies") or default_payload.get("geographies") or ["Washington, United States"]),
+            _existing_geo = filters.get("geographies") or default_payload.get("geographies") or ["Washington"]
+            _geo_default = [g for g in _existing_geo if g in US_GEO_OPTIONS] or ["Washington"]
+            manual_geographies = mf2.multiselect(
+                "Geographies (US states & cities)",
+                options=US_GEO_OPTIONS,
+                default=_geo_default,
                 key="manual_filter_geographies",
+                help="Pick one or more US states/cities. Companies are matched by headquarters location.",
             )
             manual_employee_band = mf1.selectbox(
                 "Employee Range",
-                ["25 to 500", "50 to 500", "100 to 1000", "mid-market", "enterprise"],
-                index=2,
+                ["1-10", "10-25", "25-100", "100-500", "500+"],
+                index=3,
                 key="manual_filter_employee_band",
             )
             manual_revenue_band = mf2.selectbox(
@@ -4563,44 +4656,40 @@ def icp_agent_tab(base_url: str) -> None:
                 key="manual_filter_revenue_band",
             )
             manual_tech = mf1.text_input(
-                "Technology Stack Signals",
-                value=", ".join(filters.get("tech_stack_signals") or ["Salesforce", "HubSpot", "Snowflake", "AWS"]),
+                "Technology Stack Signals (optional)",
+                value=", ".join(filters.get("tech_stack_signals") or []),
                 key="manual_filter_tech",
+                help="Optional. Add tools the target uses (e.g. Salesforce, HubSpot) to sharpen the ICP.",
             )
             manual_titles = mf2.text_input(
-                "Target Job Titles",
-                value=", ".join(filters.get("target_job_titles") or ["VP Sales", "Head of Sales", "Director of Revenue Operations", "CRO"]),
+                "Target Job Titles (optional)",
+                value=", ".join(filters.get("target_job_titles") or []),
                 key="manual_filter_titles",
+                help="Optional. Filters contacts by title. Leave blank to return any decision-makers at the company.",
             )
             manual_seniority = mf1.text_input(
-                "Seniority Levels",
-                value=", ".join(filters.get("seniority_levels") or ["Director", "VP", "C-suite"]),
+                "Seniority Levels (optional)",
+                value=", ".join(filters.get("seniority_levels") or []),
                 key="manual_filter_seniority",
+                help="Optional. e.g. Director, VP, C-suite. Leave blank for no seniority filter.",
             )
             manual_buying_signals = mf2.text_input(
-                "Buying Signals",
-                value=", ".join(filters.get("buying_signals") or ["sales hiring", "recent funding", "geographic expansion", "new revenue leadership", "CRM adoption"]),
+                "Buying Signals (optional)",
+                value=", ".join(filters.get("buying_signals") or []),
                 key="manual_filter_buying_signals",
+                help="Optional. Context for enrichment/intelligence, e.g. recent funding, sales hiring.",
             )
             manual_pain_points = st.text_area(
-                "Pain Points",
-                value=", ".join(filters.get("pain_points") or default_payload.get("pain_points") or ["poor pipeline visibility", "manual lead qualification", "low outbound reply rates", "forecasting inconsistency"]),
+                "Pain Points (optional)",
+                value=", ".join(filters.get("pain_points") or default_payload.get("pain_points") or []),
                 key="manual_filter_pain_points",
                 height=80,
+                help="Optional. The problems your offer solves. Enriches messaging when provided.",
             )
-            ex1, ex2 = st.columns(2)
-            manual_excluded_industries = ex1.text_input(
-                "Excluded Industries / Company Types",
-                value="consulting firms, agencies",
-                key="manual_filter_excluded_industries",
-            )
-            manual_employee_min = ex2.number_input(
-                "Exclude Companies Below Employees",
-                min_value=0,
-                value=50,
-                step=5,
-                key="manual_filter_min_employees",
-            )
+            # Exclusion filters removed from the UI; default to no exclusions so
+            # discovery returns the widest set of matching companies.
+            manual_excluded_industries = ""
+            manual_employee_min = 0
             manual_notes = st.text_area(
                 "Extra Notes",
                 value="Run the full SDR workflow.",
@@ -4609,7 +4698,7 @@ def icp_agent_tab(base_url: str) -> None:
             )
 
             industries = split_csv(manual_industries)
-            geographies = split_csv(manual_geographies)
+            geographies = _geo_to_apollo(manual_geographies)
             titles = split_csv(manual_titles)
             seniority = split_csv(manual_seniority)
             pain_points = split_csv(manual_pain_points)
@@ -4748,8 +4837,8 @@ def icp_agent_tab(base_url: str) -> None:
                                     "/sdr/pipeline/run?sync=true",
                                     {
                                         "icp_payload": payload,
-                                        "discovery_limit": 3,
-                                        "enrich_top_accounts": 1,
+                                        "discovery_limit": int(num_companies),
+                                        "enrich_top_accounts": int(num_companies),
                                         "collection": enrichment_payload.get("collection", "sdr_enrichment"),
                                         "search_provider": enrichment_payload.get("search_provider") or None,
                                         "top_k": min(int(enrichment_payload.get("top_k", 4) or 4), 4),
@@ -4816,8 +4905,7 @@ def icp_agent_tab(base_url: str) -> None:
             except Exception as exc:
                 st.error(f"Save failed: {exc}")
 
-        with st.expander("Developer JSON - Current Draft Payload", expanded=False):
-            st.json(st.session_state["icp_generated_payload"])
+        render_dev_json("Developer JSON - Current Draft Payload", st.session_state["icp_generated_payload"])
 
         pipeline_result = st.session_state.get("sdr_pipeline_result")
         if pipeline_result:

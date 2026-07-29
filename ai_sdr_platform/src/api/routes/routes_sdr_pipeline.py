@@ -107,7 +107,17 @@ def _execute_pipeline(
             "Enable SDR_DISCOVERY_SYNTHETIC_CONTACTS or configure web contact "
             "search to unlock intelligence and outreach."
         )
-    for account in discovery.accounts[: payload.enrich_top_accounts]:
+    # Spend the enrichment/intelligence budget on accounts that actually have
+    # discovered contacts first — otherwise we could enrich the top-N accounts by
+    # fit and find they have no people, leaving Prospect Intelligence nearly empty.
+    accounts_with_contacts = [
+        acc for acc in discovery.accounts if contacts_by_account.get(acc.account_id)
+    ]
+    accounts_without_contacts = [
+        acc for acc in discovery.accounts if not contacts_by_account.get(acc.account_id)
+    ]
+    prioritized_accounts = accounts_with_contacts + accounts_without_contacts
+    for account in prioritized_accounts[: payload.enrich_top_accounts]:
         try:
             enrichment_request = EnrichmentResearchRequest(
                 account=account.model_dump(),

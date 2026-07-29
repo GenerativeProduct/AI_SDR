@@ -1203,3 +1203,107 @@ class SyntheticContactProvider:
                     )
                 )
         return contacts
+
+
+# ---------------------------------------------------------------------------
+# Email-enrichment providers (waterfall) — optional, keyed by credentials.
+# ---------------------------------------------------------------------------
+
+@dataclass
+class EmailResult:
+    email: str
+    status: str = "unverified"   # verified / unverified / catch_all / invalid
+    score: int = 0               # provider confidence 0-100
+    provider: str = ""
+
+
+def _split_name(full_name: str) -> tuple[str, str]:
+    parts = (full_name or "").strip().split()
+    if not parts:
+        return "", ""
+    if len(parts) == 1:
+        return parts[0], ""
+    return parts[0], parts[-1]
+
+
+# Map Hunter's status vocabulary onto ours.
+_HUNTER_STATUS_MAP = {
+    "valid": "verified",
+    "accept_all": "catch_all",
+    "invalid": "invalid",
+    "webmail": "unverified",
+    "disposable": "unverified",
+    "unknown": "unverified",
+}
+
+
+@dataclass
+class HunterEmailProvider:
+    """Finds and verifies work emails via the Hunter.io v2 API.
+
+    Used as an email-enrichment step after the contact provider: for a contact
+    with no email we call Email Finder (name + company domain); for a contact
+    that already has an unverified email we call Email Verifier.
+    """
+
+    api_key: str
+    name: str = "hunter"
+    base_url: str = "https://api.hunter.io/v2"
+    timeout_seconds: float = 15.0
+
+    def is_available(self) -> bool:
+        return bool(self.api_key)
+
+    def find_email(self, full_name: str, domain: str) -> EmailResult | None:
+        if not self.api_key or not domain or not full_name:
+            return None
+        first, last = _split_name(full_name)
+        if not first:
+            return None
+        try:
+            resp = requests.get(
+                f"{self.base_url}/email-finder",
+                params={
+                    "domain": domain,
+                    "first_name": first,
+                    "last_name": last,
+                    "api_key": self.api_key,
+                },
+                timeout=self.timeout_seconds,
+            )
+            resp.raise_for_status()
+            data = (resp.json() or {}).get("data") or {}
+        except requests.HTTPError as exc:
+            status = getattr(exc.response, "status_code", "?")
+            logger.error("Hunter email-finder failed: HTTP %s for %s@%s", status, full_name, domain)
+            return None
+        except Exception as exc:
+            logger.error("Hunter email-finder error: %s", exc)
+            return None
+
+        email = (data.get("email") or "").strip()
+        if not email:
+            return None
+        verification = data.get("verification") or {}
+        raw_status = (verification.get("status") or "").lower()
+        status = _HUNTER_STATUS_MAP.get(raw_status, "unverified")
+        logger.info("Hunter found email for %s@%s (score=%s)", full_name, domain, data.get("score"))
+        return EmailResult(email=email, status=status, score=int(data.get("score") or 0), provider=self.name)
+
+    def verify_email(self, email: str) -> str | None:
+        """Return our verification status for an existing email, or None on error."""
+        if not self.api_key or not email:
+            return None
+        try:
+            resp = requests.get(
+                f"{self.base_url}/email-verifier",
+                params={"email": email, "api_key": self.api_key},
+                timeout=self.timeout_seconds,
+            )
+            resp.raise_for_status()
+            data = (resp.json() or {}).get("data") or {}
+        except Exception as exc:
+            logger.error("Hunter email-verifier error for %s: %s", email, exc)
+            return None
+        raw_status = (data.get("status") or "").lower()
+        return _HUNTER_STATUS_MAP.get(raw_status, "unverified")

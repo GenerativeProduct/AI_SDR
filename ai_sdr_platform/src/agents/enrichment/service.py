@@ -1,8 +1,14 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from typing import Any, Protocol
+
+import requests
+
+logger = logging.getLogger("sdr.enrichment")
 
 from ai_sdr_platform.src.agents.enrichment.models import (
     EnrichmentAccount,
@@ -84,12 +90,121 @@ class NoopSearchProvider:
 
 
 @dataclass
+class SearxngSearchProvider:
+    """Live web-search provider backed by a local SearXNG instance.
+
+    Used for enrichment when the optional OpenSearch backend service is not
+    available. SearXNG's JSON API returns ``results: [{title, url, content}]``,
+    which we map to the hit shape the enrichment synthesis step expects.
+    """
+
+    base_url: str
+    timeout_seconds: float = 15.0
+
+    def search(
+        self,
+        *,
+        query: str,
+        collection: str,
+        top_k: int,
+        provider: str | None,
+        auto_fetch_and_index: bool,
+        llm_provider: str,
+    ) -> dict[str, Any]:
+        try:
+            resp = requests.get(
+                f"{self.base_url.rstrip('/')}/search",
+                params={"q": query, "format": "json"},
+                timeout=self.timeout_seconds,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+        except Exception as exc:
+            logger.error("SearXNG enrichment search failed for %r: %s", query, exc)
+            return {
+                "query": query,
+                "hits": [],
+                "explanation": "",
+                "provider": "searxng",
+                "warnings": [f"SearXNG search failed: {exc}"],
+            }
+
+        hits: list[dict[str, Any]] = []
+        for row in (data.get("results") or [])[: max(1, top_k)]:
+            hits.append(
+                {
+                    "title": row.get("title") or "",
+                    "url": row.get("url") or "",
+                    "snippet": row.get("content") or "",
+                    "score": row.get("score"),
+                }
+            )
+
+        # Fall back to infoboxes/answers when the search engines are rate-limited
+        # (they return an empty `results` list but often still yield a rich
+        # Wikipedia/Wikidata infobox). This keeps enrichment from collapsing to
+        # "limited_evidence" just because Google/Brave/DDG throttled SearXNG.
+        for box in data.get("infoboxes") or []:
+            content = box.get("content") or ""
+            if not content:
+                continue
+            url = ""
+            urls = box.get("urls") or []
+            if urls and isinstance(urls[0], dict):
+                url = urls[0].get("url") or ""
+            hits.append(
+                {
+                    "title": box.get("infobox") or box.get("title") or "Overview",
+                    "url": url or box.get("id") or "",
+                    "snippet": content,
+                    "score": 0.5,
+                }
+            )
+        for answer in data.get("answers") or []:
+            text = answer if isinstance(answer, str) else (answer.get("answer") if isinstance(answer, dict) else "")
+            if text:
+                hits.append({"title": "Answer", "url": "", "snippet": str(text), "score": 0.4})
+
+        hits = hits[: max(1, top_k)]
+        unresponsive = data.get("unresponsive_engines") or []
+        logger.info(
+            "SearXNG enrichment search ok: %s hits for %r (%d engines unresponsive)",
+            len(hits), query, len(unresponsive),
+        )
+        return {"query": query, "hits": hits, "explanation": "", "provider": "searxng"}
+
+
+@dataclass
 class EnrichmentService:
     repository: EnrichmentRepository
     search_provider: SearchProvider | None = None
     llm_router: object | None = None
 
+    @staticmethod
+    def _is_fresh(ts: datetime | None) -> bool:
+        if ts is None:
+            return False
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        ttl = int(getattr(settings, "cache_ttl_days", 30))
+        return (datetime.now(timezone.utc) - ts) < timedelta(days=ttl)
+
     def research(self, request: EnrichmentResearchRequest) -> EnrichmentResult:
+        account = request.account
+        account_id = account.account_id or self._slug_account(account)
+
+        # Cache-first: reuse a fresh, complete enrichment instead of re-running
+        # SearXNG + LLM. This is what stops repeat runs from re-hitting (and being
+        # throttled by) the search engines for companies already researched.
+        if getattr(settings, "enrichment_cache_enabled", True):
+            cached = self.repository.get_latest(account_id)
+            if cached and cached.status == "complete" and self._is_fresh(cached.updated_at):
+                logger.info(
+                    "Enrichment cache hit for %s (%s) - skipping web search",
+                    account_id, account.company_name,
+                )
+                return cached
+
         provider = self.search_provider or NoopSearchProvider()
         collection = request.collection or settings.enrichment_collection
         top_k = request.top_k or settings.enrichment_top_k

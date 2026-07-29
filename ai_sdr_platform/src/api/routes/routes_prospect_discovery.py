@@ -19,6 +19,7 @@ from ai_sdr_platform.src.agents.prospect_discovery.providers import (
     CompaniesHouseAccountProvider,
     CompositeAccountProvider,
     GLEIFAccountProvider,
+    HunterEmailProvider,
     NoPublicContactProvider,
     OpenCorporatesAccountProvider,
     SECAccountProvider,
@@ -26,6 +27,16 @@ from ai_sdr_platform.src.agents.prospect_discovery.providers import (
     WebSearchAccountProvider,
     WebSearchContactProvider,
 )
+
+
+def _build_email_providers() -> list:
+    """Build the email-enrichment waterfall from whatever credentials exist.
+    Missing key => provider not built => silently skipped."""
+    providers: list = []
+    if settings.hunter_api_key:
+        providers.append(HunterEmailProvider(api_key=settings.hunter_api_key))
+    # Future: if settings.zoominfo_api_key: providers.append(ZoomInfoEmailProvider(...))
+    return providers
 from ai_sdr_platform.src.shared.config import settings
 
 router = APIRouter(prefix="/prospect-discovery", tags=["prospect-discovery"])
@@ -104,15 +115,18 @@ def configure_prospect_discovery_service(
         contact_provider = SyntheticContactProvider()
     else:
         contact_provider = NoPublicContactProvider()
+    email_providers = _build_email_providers()
     _service = ProspectDiscoveryService(
         repository=_repository,
         account_provider=CompositeAccountProvider(providers=account_providers),
         contact_provider=contact_provider,
+        email_providers=email_providers,
     )
     logger.info(
-        "Discovery configured: account_providers=[%s] | contact_provider=%s",
+        "Discovery configured: account_providers=[%s] | contact_provider=%s | email_providers=[%s]",
         ", ".join(p.name for p in account_providers),
         contact_provider.name,
+        ", ".join(p.name for p in email_providers) or "none",
     )
     return _service
 
