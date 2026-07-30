@@ -1,8 +1,5 @@
-# ===== SECRETS — never commit =====
-secrets.local.ps1
-secrets.local.sh
-!secrets.local.ps1.example
-!secrets.local.sh.example
+
+
 .env
 .env.*
 !.env.example
