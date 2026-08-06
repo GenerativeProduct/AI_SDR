@@ -200,6 +200,9 @@ class SDRSettings:
     enrichment_searxng_url: str = os.getenv(
         "SDR_ENRICHMENT_SEARXNG_URL", os.getenv("SEARXNG_BASE_URL", "")
     )
+    # Serper.dev (Google results API) for enrichment web search. When set it is
+    # the primary provider, with SearXNG kept as a free fallback.
+    serper_api_key: str = os.getenv("SERPER_API_KEY", "")
     enrichment_llm_provider: str = os.getenv("SDR_ENRICHMENT_LLM_PROVIDER", "ollama_local")
     enrichment_llm_model: str = os.getenv("SDR_ENRICHMENT_LLM_MODEL", "llama3.2:3b")
     default_weight_industry_fit: float = float(os.getenv("SDR_WEIGHT_INDUSTRY_FIT", "0.30"))

@@ -100,6 +100,7 @@ class SearxngSearchProvider:
 
     base_url: str
     timeout_seconds: float = 15.0
+    name: str = "searxng"
 
     def search(
         self,
@@ -172,6 +173,123 @@ class SearxngSearchProvider:
             len(hits), query, len(unresponsive),
         )
         return {"query": query, "hits": hits, "explanation": "", "provider": "searxng"}
+
+
+@dataclass
+class SerperSearchProvider:
+    """Live web-search provider backed by Serper.dev (Google results as JSON).
+
+    Primary enrichment search provider: real Google coverage with no CAPTCHA or
+    scraping throttling. We keep ``num`` at 10 so each query costs 1 Serper credit.
+    """
+
+    api_key: str
+    base_url: str = "https://google.serper.dev/search"
+    timeout_seconds: float = 15.0
+    name: str = "serper"
+
+    def search(
+        self,
+        *,
+        query: str,
+        collection: str,
+        top_k: int,
+        provider: str | None,
+        auto_fetch_and_index: bool,
+        llm_provider: str,
+    ) -> dict[str, Any]:
+        try:
+            resp = requests.post(
+                self.base_url,
+                json={"q": query, "num": min(max(int(top_k), 1), 10)},
+                headers={"X-API-KEY": self.api_key, "Content-Type": "application/json"},
+                timeout=self.timeout_seconds,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+        except Exception as exc:
+            logger.error("Serper search failed for %r: %s", query, exc)
+            return {
+                "query": query,
+                "hits": [],
+                "explanation": "",
+                "provider": "serper",
+                "warnings": [f"Serper failed: {exc}"],
+            }
+
+        hits: list[dict[str, Any]] = []
+        for row in (data.get("organic") or [])[: max(1, top_k)]:
+            hits.append(
+                {
+                    "title": row.get("title") or "",
+                    "url": row.get("link") or "",
+                    "snippet": row.get("snippet") or "",
+                    "score": row.get("position"),
+                }
+            )
+        # Knowledge graph + answer box are high-value extra evidence.
+        kg = data.get("knowledgeGraph") or {}
+        if kg.get("description"):
+            hits.append({
+                "title": kg.get("title") or "Overview",
+                "url": kg.get("descriptionLink") or kg.get("website") or "",
+                "snippet": kg.get("description"),
+                "score": 0.9,
+            })
+        ab = data.get("answerBox") or {}
+        ab_text = ab.get("answer") or ab.get("snippet")
+        if ab_text:
+            hits.append({
+                "title": ab.get("title") or "Answer",
+                "url": ab.get("link") or "",
+                "snippet": str(ab_text),
+                "score": 0.8,
+            })
+        logger.info("Serper search ok: %s hits for %r", len(hits), query)
+        return {"query": query, "hits": hits, "explanation": "", "provider": "serper"}
+
+
+@dataclass
+class FallbackSearchProvider:
+    """Waterfall over search providers: try each in order, return the first that
+    yields hits. Lets Serper be primary with SearXNG as a free fallback."""
+
+    providers: list
+    name: str = "fallback"
+
+    def search(
+        self,
+        *,
+        query: str,
+        collection: str,
+        top_k: int,
+        provider: str | None,
+        auto_fetch_and_index: bool,
+        llm_provider: str,
+    ) -> dict[str, Any]:
+        kwargs = dict(
+            query=query,
+            collection=collection,
+            top_k=top_k,
+            provider=provider,
+            auto_fetch_and_index=auto_fetch_and_index,
+            llm_provider=llm_provider,
+        )
+        last: dict[str, Any] = {"query": query, "hits": [], "explanation": "", "provider": "none"}
+        for p in self.providers:
+            try:
+                result = p.search(**kwargs)
+            except Exception as exc:
+                logger.error("Enrichment provider %s errored: %s", getattr(p, "name", p), exc)
+                continue
+            last = result
+            if result.get("hits"):
+                logger.info(
+                    "Enrichment search served by %s (%d hits) for %r",
+                    getattr(p, "name", "?"), len(result.get("hits") or []), query,
+                )
+                return result
+        return last
 
 
 @dataclass
