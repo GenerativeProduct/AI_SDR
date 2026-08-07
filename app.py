@@ -4162,6 +4162,9 @@ def icp_agent_tab(base_url: str) -> None:
                         f"**{str(message.get('channel', '')).title()} "
                         f"touch {int(message.get('sequence_order', 0)) + 1}**"
                     )
+                    st.markdown(
+                        f"Recipient: `{message.get('recipient') or 'No recipient available'}`"
+                    )
                     if message.get("subject"):
                         st.markdown(f"Subject: `{message.get('subject')}`")
                     st.code(str(message.get("body", "")), language="text")
@@ -4189,23 +4192,54 @@ def icp_agent_tab(base_url: str) -> None:
                         st.rerun()
                     except Exception as exc:
                         st.error(f"Approval failed: {exc}")
-                if a2.button(
-                    "Send Due Messages",
-                    key=f"pipeline_send_{campaign_id}",
-                    use_container_width=True,
-                    disabled=campaign.get("status") not in {"approved", "running"},
-                ):
-                    try:
-                        updated = api_post_json(
-                            base_url,
-                            f"/outreach/campaigns/{campaign_id}/send?force=true",
-                            {},
-                        )
-                        campaign.update(updated)
-                        st.success("Campaign processed by the configured provider.")
-                        st.rerun()
-                    except Exception as exc:
-                        st.error(f"Send failed: {exc}")
+                message_channels = list(
+                    dict.fromkeys(
+                        str(message.get("channel", ""))
+                        for message in campaign.get("messages", []) or []
+                        if message.get("channel") in {"email", "sms"}
+                    )
+                )
+                if len(message_channels) == 1:
+                    channel = message_channels[0]
+                    if a2.button(
+                        f"Send {channel.title()}",
+                        key=f"pipeline_send_{channel}_{campaign_id}",
+                        use_container_width=True,
+                        disabled=campaign.get("status") not in {"approved", "running"},
+                    ):
+                        try:
+                            updated = api_post_json(
+                                base_url,
+                                f"/outreach/campaigns/{campaign_id}/send?force=true&channel={channel}",
+                                {},
+                            )
+                            campaign.update(updated)
+                            st.success(f"{channel.title()} processed by the configured provider.")
+                            st.rerun()
+                        except Exception as exc:
+                            st.error(f"{channel.title()} send failed: {exc}")
+                elif len(message_channels) > 1:
+                    with a2:
+                        for channel in message_channels:
+                            if st.button(
+                                f"Send {channel.title()}",
+                                key=f"pipeline_send_{channel}_{campaign_id}",
+                                use_container_width=True,
+                                disabled=campaign.get("status") not in {"approved", "running"},
+                            ):
+                                try:
+                                    updated = api_post_json(
+                                        base_url,
+                                        f"/outreach/campaigns/{campaign_id}/send?force=true&channel={channel}",
+                                        {},
+                                    )
+                                    campaign.update(updated)
+                                    st.success(
+                                        f"{channel.title()} processed by the configured provider."
+                                    )
+                                    st.rerun()
+                                except Exception as exc:
+                                    st.error(f"{channel.title()} send failed: {exc}")
                 if a3.button(
                     "Pause",
                     key=f"pipeline_pause_{campaign_id}",
