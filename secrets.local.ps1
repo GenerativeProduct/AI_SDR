@@ -8,3 +8,6 @@ $NeonDbUrl = "postgresql://neondb_owner:npg_xdj3knQhTWv9@ep-shiny-shape-af26znmu
 
 # Hunter.io API key (Phase 4 — email find/verify). Leave blank to skip Hunter.
 $HunterApiKey = "55d7c03ffe82d4badf303af5cd498b87e68c40f2"
+
+# Serper.dev API key (enrichment web search, primary over SearXNG). Leave blank to use SearXNG only.
+$SerperApiKey = "19b73d5a61758c9494cd75f37cbcead64a8d30ae"

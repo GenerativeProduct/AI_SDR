@@ -11,7 +11,9 @@ from ai_sdr_platform.src.agents.enrichment.repository import SQLAlchemyEnrichmen
 from ai_sdr_platform.src.agents.enrichment.service import (
     DirectOpenSearchProvider,
     EnrichmentService,
+    FallbackSearchProvider,
     SearxngSearchProvider,
+    SerperSearchProvider,
 )
 from ai_sdr_platform.src.shared.config import settings
 
@@ -28,17 +30,26 @@ def configure_enrichment_service(
     role: str = "viewer",
 ) -> EnrichmentService:
     global _service
-    # Prefer the optional OpenSearch backend when present; otherwise fall back to
-    # a local SearXNG instance so enrichment still does real web research instead
-    # of the do-nothing Noop provider.
+    # Build the enrichment search waterfall in priority order. Providers whose
+    # credentials are absent are simply not added:
+    #   1) Serper (Google results API) — primary when SERPER_API_KEY is set
+    #   2) SearXNG — free local fallback
+    #   3) OpenSearch backend — when the optional backend service is available
+    chain: list = []
+    if settings.serper_api_key:
+        chain.append(SerperSearchProvider(api_key=settings.serper_api_key))
+    if settings.enrichment_search_provider == "searxng" and settings.enrichment_searxng_url:
+        chain.append(SearxngSearchProvider(base_url=settings.enrichment_searxng_url))
     if opensearch_web is not None:
-        search_provider = DirectOpenSearchProvider(
-            opensearch_web, tenant_id=tenant_id, role=role
-        )
-    elif settings.enrichment_search_provider == "searxng" and settings.enrichment_searxng_url:
-        search_provider = SearxngSearchProvider(base_url=settings.enrichment_searxng_url)
-    else:
+        chain.append(DirectOpenSearchProvider(opensearch_web, tenant_id=tenant_id, role=role))
+
+    if not chain:
         search_provider = None
+    elif len(chain) == 1:
+        search_provider = chain[0]
+    else:
+        search_provider = FallbackSearchProvider(providers=chain)
+
     _service = EnrichmentService(
         repository=_repository,
         search_provider=search_provider,
@@ -73,7 +84,14 @@ def enrichment_status(
     service: EnrichmentService = Depends(get_enrichment_service),
 ) -> dict:
     provider = service.search_provider
-    is_searxng = provider is not None and provider.__class__.__name__ == "SearxngSearchProvider"
+    # A "live" web provider is Serper, SearXNG, or a fallback chain of them.
+    live_provider_names = {"SerperSearchProvider", "SearxngSearchProvider", "FallbackSearchProvider"}
+    is_searxng = provider is not None and provider.__class__.__name__ in live_provider_names
+    # Human-readable label of the active chain.
+    if provider is not None and provider.__class__.__name__ == "FallbackSearchProvider":
+        active_web_label = "+".join(getattr(p, "name", "?") for p in getattr(provider, "providers", []))
+    else:
+        active_web_label = getattr(provider, "name", None)
     opensearch_web = getattr(provider, "opensearch_web", None)
     configured_provider = (
         opensearch_web.configured_provider()
@@ -101,13 +119,13 @@ def enrichment_status(
     return {
         "search_provider_configured": provider is not None,
         "search_provider": provider.__class__.__name__ if provider is not None else "NoopSearchProvider",
-        "configured_web_provider": configured_provider or ("searxng" if is_searxng else None),
-        "available_web_provider_chain": available_provider_chain or (["searxng"] if is_searxng else []),
+        "configured_web_provider": configured_provider or active_web_label,
+        "available_web_provider_chain": available_provider_chain or ([active_web_label] if active_web_label else []),
         "live_search_configured": live_search_configured,
         "opensearch_index_available": opensearch_available,
         "llm_configured": service.llm_router is not None,
         "detail": (
-            "Enrichment is using live SearXNG web search."
+            f"Enrichment is using live web search ({active_web_label})."
             if is_searxng
             else "Enrichment will use live web retrieval. OpenSearch indexing is also available."
             if live_search_configured and opensearch_available

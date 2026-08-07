@@ -22,6 +22,7 @@ Set-Location "C:\Users\sachi\Desktop\Desktop\Gen_Products\Latest_code\AI_SDR"
 $ApolloKey = ""
 $NeonDbUrl = ""
 $HunterApiKey = ""
+$SerperApiKey = ""
 if (Test-Path ".\secrets.local.ps1") {
     . ".\secrets.local.ps1"
 }
@@ -58,6 +59,14 @@ if ($HunterApiKey) {
     Write-Host "Email provider: HUNTER" -ForegroundColor Green
 } else {
     Write-Host "Email provider: none (no Hunter key set)" -ForegroundColor Yellow
+}
+
+# --- Enrichment web search: Serper (Google) primary, SearXNG fallback ---
+if ($SerperApiKey) {
+    $env:SERPER_API_KEY = $SerperApiKey
+    Write-Host "Enrichment search: SERPER (primary) + SearXNG (fallback)" -ForegroundColor Green
+} else {
+    Write-Host "Enrichment search: SearXNG only (no Serper key set)" -ForegroundColor Yellow
 }
 
 # --- Core settings (same every run) ---
