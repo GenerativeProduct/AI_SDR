@@ -4,7 +4,7 @@ import hmac
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 
 from ai_sdr_platform.src.agents.outreach.composer import MessageComposer
 from ai_sdr_platform.src.agents.outreach.models import (
@@ -23,6 +23,7 @@ from ai_sdr_platform.src.agents.outreach.providers import (
     BrevoEmailProvider,
     HumanTaskProvider,
     ProviderRegistry,
+    ResendEmailProvider,
     SESEmailProvider,
     SMTPEmailProvider,
     TwilioMessagingProvider,
@@ -91,6 +92,17 @@ def _build_provider_registry() -> ProviderRegistry:
             from_email=settings.outreach_from_email,
             from_name=settings.outreach_sender_name,
             reply_to_email=settings.outreach_reply_to_email or None,
+        )
+    elif settings.outreach_provider == "resend":
+        if not settings.outreach_resend_api_key:
+            raise RuntimeError(
+                "Resend outreach requires SDR_OUTREACH_RESEND_API_KEY or RESEND_API_KEY."
+            )
+        email = ResendEmailProvider(
+            api_key=settings.outreach_resend_api_key,
+            from_email=settings.outreach_resend_from_email or settings.outreach_from_email or "onboarding@resend.dev",
+            sender_name=settings.outreach_resend_sender_name or settings.outreach_sender_name or "SDR Team",
+            test_recipient=settings.outreach_test_recipient or None,
         )
 
     sms = dry
@@ -429,6 +441,43 @@ def openclaw_command(
                 ]
             },
         )
+@router.post("/webhooks/twilio/inbound")
+async def twilio_inbound_webhook(
+    request: Request,
+    service: OutreachService = Depends(get_outreach_service),
+) -> dict[str, str]:
+    """Inbound webhook handler for Twilio SMS / WhatsApp replies."""
+    form_data = await request.form()
+    sender = str(form_data.get("From", "")).strip()
+    body = str(form_data.get("Body", "")).strip()
+    message_sid = str(form_data.get("MessageSid", "")).strip()
+    channel = "whatsapp" if sender.startswith("whatsapp:") else "sms"
+
+    if not sender or not body:
+        raise HTTPException(status_code=400, detail="Missing From or Body in Twilio webhook payload.")
+
+    from ai_sdr_platform.src.api.routes.routes_conversation import get_conversation_service
+    from ai_sdr_platform.src.agents.conversation.models import InboundReplyRequest
+
+    campaigns = service.list_campaigns()
+    matching_campaign = next(
+        (c for c in campaigns if c.channel in (channel, "sms", "whatsapp")),
+        None,
+    )
+    if matching_campaign:
+        get_conversation_service().ingest_reply(
+            InboundReplyRequest(
+                campaign_id=matching_campaign.campaign_id,
+                channel=channel,
+                body=body,
+                provider="twilio",
+                provider_message_id=message_sid,
+            )
+        )
+
+    return {"status": "accepted", "channel": channel, "sender": sender}
+
+
     if payload.action == "approve_conversation_reply":
         if not payload.conversation_id:
             raise HTTPException(status_code=400, detail="conversation_id is required.")

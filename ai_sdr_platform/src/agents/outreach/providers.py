@@ -104,6 +104,69 @@ class SESEmailProvider:
         )
 
 
+import logging
+
+logger = logging.getLogger("sdr.outreach")
+
+@dataclass
+class ResendEmailProvider:
+    api_key: str
+    from_email: str
+    sender_name: str = "SDR Team"
+    test_recipient: str | None = None
+    timeout_seconds: float = 30.0
+    name: str = "resend"
+
+    def send(self, message: OutreachMessage) -> ProviderSendResult:
+        if not self.api_key:
+            raise ValueError("Resend API key is missing.")
+
+        effective_to = self.test_recipient if self.test_recipient else message.recipient
+        if self.test_recipient and self.test_recipient != message.recipient:
+            logger.info(
+                "Resend test mode: redirecting send from recipient %s to test_recipient %s",
+                message.recipient,
+                self.test_recipient,
+            )
+
+        payload = {
+            "from": f"{self.sender_name} <{self.from_email}>",
+            "to": [effective_to],
+            "subject": message.subject or "A quick question",
+            "text": message.body,
+            "headers": {
+                "X-SDR-Message-Id": message.message_id,
+            },
+        }
+
+        response = requests.post(
+            "https://api.resend.com/emails",
+            headers={
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+            timeout=self.timeout_seconds,
+        )
+        try:
+            response.raise_for_status()
+        except requests.HTTPError as exc:
+            detail = response.text[:500] if response.text else response.reason
+            raise ValueError(
+                f"Resend rejected email send with HTTP {response.status_code}: {detail}"
+            ) from exc
+
+        body = response.json()
+        provider_message_id = body.get("id") or f"resend-{uuid4()}"
+        return ProviderSendResult(
+            accepted=True,
+            provider=self.name,
+            provider_message_id=provider_message_id,
+            status="sent",
+            detail=f"Resend sent email to {effective_to}",
+        )
+
+
 @dataclass
 class BrevoEmailProvider:
     api_key: str

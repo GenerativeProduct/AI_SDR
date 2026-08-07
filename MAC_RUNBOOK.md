@@ -201,19 +201,40 @@ Then every run:
 ./start-sdr-backend.sh
 ```
 
-**Apollo key (optional).** The key lives in a gitignored file, not in the script:
+**Apollo & Outreach keys (optional).** Place your API keys in `secrets.local.sh` (gitignored):
 
 ```bash
 cp secrets.local.sh.example secrets.local.sh
-# then edit secrets.local.sh and set:  ApolloKey="your-key-here"
 ```
 
-- Key present → **apollo** discovery provider (prints green)
-- File absent or key empty → **public/mock** provider (prints yellow). The full
-  pipeline still runs; only the initial company list is mock data.
+Edit `secrets.local.sh` to configure live discovery and outreach providers:
 
-The script activates the venv, exports every required variable, and starts
-uvicorn — so you never retype settings.
+```bash
+# Apollo Discovery Key (optional - leave empty for public/mock discovery)
+ApolloKey="your-apollo-key-here"
+
+# Resend Email Outreach (optional - set provider to resend to send live emails)
+RESEND_API_KEY="re_123456789"
+RESEND_FROM_EMAIL="onboarding@resend.dev"
+RESEND_SENDER_NAME="SDR Team"
+TEST_RECIPIENT="your-personal-email@gmail.com"  # Dev redirect for Resend free tier
+
+# Twilio SMS & WhatsApp Messaging (optional)
+SDR_OUTREACH_TWILIO_ACCOUNT_SID="AC123456"
+SDR_OUTREACH_TWILIO_AUTH_TOKEN="your-token"
+SDR_OUTREACH_TWILIO_FROM_NUMBER="+15550001111"
+
+# LLM Providers (optional - Groq & xAI Grok)
+GROQ_API_KEY="gsk_12345"
+GROK_API_KEY="xai_12345"
+```
+
+- Apollo Key present → **apollo** discovery provider (prints green).
+- Resend Key set & `SDR_OUTREACH_PROVIDER=resend` → **resend** email provider.
+- Twilio credentials set → **twilio** SMS & WhatsApp messaging enabled.
+- Default / Keys empty → **public/mock** discovery & **dry_run** outreach provider (prints yellow). The full pipeline still runs cleanly offline.
+
+The script activates the venv, exports every required variable, and starts uvicorn — so you never retype settings.
 
 Health check: open **http://127.0.0.1:8011/docs**.
 Login for protected routes: `admin@sdr.local` / `admin123`.
@@ -228,7 +249,6 @@ source .venv/bin/activate
 export SDR_API_BASE_URL="http://127.0.0.1:8011"
 export SDR_DISCOVERY_PROVIDER="public"        # or "apollo" with a key
 # export APOLLO_API_KEY="your-key"
-# export SDR_DISCOVERY_APOLLO_API_KEY="your-key"
 export WEB_SEARCH_PROVIDER="searxng"
 export SEARXNG_BASE_URL="http://127.0.0.1:8088"
 export SDR_ENRICHMENT_SEARCH_PROVIDER="searxng"
@@ -239,7 +259,9 @@ export SDR_ENRICHMENT_LLM_PROVIDER="ollama_local"
 export SDR_ENRICHMENT_LLM_MODEL="llama3.2:3b"
 export SDR_INTELLIGENCE_METARANK_URL="http://127.0.0.1:8081"
 export SDR_INTELLIGENCE_METARANK_MODEL="sdr-prospect-ranker"
-export SDR_OUTREACH_PROVIDER="dry_run"
+export SDR_OUTREACH_PROVIDER="resend"         # or "dry_run" / "brevo" / "smtp"
+# export RESEND_API_KEY="your-resend-key"
+# export TEST_RECIPIENT="your-test-email@gmail.com"
 
 uvicorn ai_sdr_platform.src.api.app:app --host 127.0.0.1 --port 8011 --reload
 ```
