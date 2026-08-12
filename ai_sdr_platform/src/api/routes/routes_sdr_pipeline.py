@@ -192,10 +192,25 @@ def _execute_pipeline(
             warnings.append(f"Qualification skipped for {contact.full_name}: {exc}.")
             continue
         qualification_results.append(qualification)
-        nurture_email_draft = outreach_draft_eligibility.eligible_nurture_email(
-            qualification, contact
+        draft_request = OutreachCampaignRequest(
+            intelligence=intelligence,
+            contact=contact,
+            require_approval=True,
+            created_by=payload.created_by,
         )
-        if qualification.qualification_status not in {"SQL", "MQL"} and not nurture_email_draft:
+        requested_channels = outreach_draft_eligibility.requested_channels(
+            draft_request, outreach_service.policy_agent
+        )
+        nurture_draft = outreach_draft_eligibility.eligible_nurture_draft(
+            qualification, contact, requested_channels
+        )
+        if not requested_channels:
+            warnings.append(
+                f"Outreach skipped for {intelligence.contact_name}: no valid email or "
+                "policy-eligible SMS number is available."
+            )
+            continue
+        if qualification.qualification_status not in {"SQL", "MQL"} and not nurture_draft:
             warnings.append(
                 f"Outreach skipped for {intelligence.contact_name}: "
                 f"Qualification Agent routed the prospect to "
@@ -205,12 +220,8 @@ def _execute_pipeline(
         try:
             outreach_campaigns.append(
                 outreach_service.create_campaign(
-                    OutreachCampaignRequest(
-                        intelligence=intelligence,
-                        contact=contact,
-                        requested_channels=["email"] if nurture_email_draft else [],
-                        require_approval=True,
-                        created_by=payload.created_by,
+                    draft_request.model_copy(
+                        update={"requested_channels": requested_channels}
                     )
                 )
             )
