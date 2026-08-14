@@ -42,7 +42,8 @@ class SQLAlchemyQualificationRepository:
             {"check_same_thread": False} if database_url.startswith("sqlite") else {}
         )
         self.engine = create_engine(
-            database_url, future=True, connect_args=connect_args
+            database_url, future=True, connect_args=connect_args,
+            pool_pre_ping=True, pool_recycle=300,
         )
         self.SessionLocal = sessionmaker(
             bind=self.engine, autoflush=False, autocommit=False, future=True

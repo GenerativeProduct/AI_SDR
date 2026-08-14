@@ -11,3 +11,14 @@ $HunterApiKey = "55d7c03ffe82d4badf303af5cd498b87e68c40f2"
 
 # Serper.dev API key (enrichment web search, primary over SearXNG). Leave blank to use SearXNG only.
 $SerperApiKey = "19b73d5a61758c9494cd75f37cbcead64a8d30ae"
+
+# ---- Real outreach sending (leave blank = dry-run / no send) ----
+# EMAIL via Brevo: set provider to "brevo", paste the key + a verified sender email.
+$OutreachProvider  = "dry_run"    # set to "brevo" (or "smtp"/"ses") to send real email
+$BrevoApiKey       = ""
+$OutreachFromEmail = ""           # e.g. you@yourdomain.com (must be a verified Brevo sender)
+$OutreachFromName  = "SDR Team"
+# SMS/WhatsApp via Twilio:
+$TwilioAccountSid  = ""
+$TwilioAuthToken   = ""
+$TwilioFromNumber  = ""           # e.g. +15551234567 (your Twilio number)

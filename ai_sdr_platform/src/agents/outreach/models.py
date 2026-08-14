@@ -44,6 +44,11 @@ class OutreachCampaignRequest(BaseModel):
         return self
 
 
+class MessageEditRequest(BaseModel):
+    subject: str | None = None
+    body: str | None = None
+
+
 class PolicyDecision(BaseModel):
     allowed: bool
     reasons: list[str] = Field(default_factory=list)

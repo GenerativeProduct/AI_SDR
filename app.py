@@ -137,9 +137,16 @@ def render_dev_json(label: str, data: Any) -> None:
         st.json(data)
 
 
-def api_post_json(base_url: str, path: str, payload: Dict[str, Any]) -> Any:
+def api_post_json(base_url: str, path: str, payload: Dict[str, Any], timeout: int = 300) -> Any:
     url = f"{base_url.rstrip('/')}{path}"
-    resp = requests.post(url, json=payload, headers=_api_headers(), timeout=300)
+    resp = requests.post(url, json=payload, headers=_api_headers(), timeout=timeout)
+    _raise_for_status_with_detail(resp)
+    return resp.json()
+
+
+def api_patch_json(base_url: str, path: str, payload: Dict[str, Any], timeout: int = 120) -> Any:
+    url = f"{base_url.rstrip('/')}{path}"
+    resp = requests.patch(url, json=payload, headers=_api_headers(), timeout=timeout)
     _raise_for_status_with_detail(resp)
     return resp.json()
 
@@ -4158,19 +4165,88 @@ def icp_agent_tab(base_url: str) -> None:
                 for reason in policy.get("reasons", []) or []:
                     st.caption(reason)
                 for message in campaign.get("messages", []) or []:
+                    message_id = str(message.get("message_id", ""))
+                    channel = str(message.get("channel", ""))
+                    mkey = f"{campaign_id}_{message_id}"
                     st.markdown(
-                        f"**{str(message.get('channel', '')).title()} "
-                        f"touch {int(message.get('sequence_order', 0)) + 1}**"
+                        f"**{channel.title()} touch {int(message.get('sequence_order', 0)) + 1}** "
+                        "— AI-generated, editable"
                     )
-                    if message.get("subject"):
-                        st.markdown(f"Subject: `{message.get('subject')}`")
-                    st.code(str(message.get("body", "")), language="text")
+                    new_subject = None
+                    if channel == "email":
+                        new_subject = st.text_input(
+                            "Subject", value=message.get("subject") or "", key=f"subj_{mkey}"
+                        )
+                    new_body = st.text_area(
+                        "Message body (edit before approving)",
+                        value=str(message.get("body", "")),
+                        height=200,
+                        key=f"body_{mkey}",
+                    )
                     review = message.get("review", {}) or {}
                     st.caption(
                         f"Review: {'passed' if review.get('passed') else 'blocked'} | "
                         f"Provider: {message.get('provider', 'dry_run')} | "
                         f"Status: {message.get('status', 'draft')}"
                     )
+                    _send_labels = {
+                        "email": "📧 Send email",
+                        "sms": "💬 Send SMS",
+                        "whatsapp": "💬 Send WhatsApp",
+                        "linkedin": "🔗 Create LinkedIn task",
+                        "phone": "📞 Create call task",
+                    }
+                    mc1, mc2, mc3 = st.columns(3)
+                    if mc1.button(
+                        "🤖 Regenerate with AI", key=f"regen_{mkey}", use_container_width=True
+                    ):
+                        try:
+                            with st.spinner("Writing a fresh draft from this prospect's data..."):
+                                updated = api_post_json(
+                                    base_url,
+                                    f"/outreach/campaigns/{campaign_id}/messages/{message_id}/regenerate",
+                                    {},
+                                    timeout=300,
+                                )
+                            campaign.update(updated)
+                            st.success("Regenerated.")
+                            st.rerun()
+                        except Exception as exc:
+                            st.error(f"Regenerate failed: {exc}")
+                    if mc2.button("💾 Save edits", key=f"save_{mkey}", use_container_width=True):
+                        try:
+                            edit_payload: Dict[str, Any] = {"body": new_body}
+                            if new_subject is not None:
+                                edit_payload["subject"] = new_subject
+                            updated = api_patch_json(
+                                base_url,
+                                f"/outreach/campaigns/{campaign_id}/messages/{message_id}",
+                                edit_payload,
+                            )
+                            campaign.update(updated)
+                            st.success("Saved your edits.")
+                            st.rerun()
+                        except Exception as exc:
+                            st.error(f"Save failed: {exc}")
+                    if mc3.button(
+                        _send_labels.get(channel, f"Send {channel}"),
+                        key=f"send_{mkey}",
+                        use_container_width=True,
+                        disabled=campaign.get("status") not in {"approved", "running"},
+                        help="Approve the campaign first. Sends via the configured provider (dry-run until you add a real key).",
+                    ):
+                        try:
+                            with st.spinner(f"Sending via {channel}..."):
+                                updated = api_post_json(
+                                    base_url,
+                                    f"/outreach/campaigns/{campaign_id}/messages/{message_id}/send?force=true",
+                                    {},
+                                )
+                            campaign.update(updated)
+                            st.success(f"{channel.title()} message processed by the provider.")
+                            st.rerun()
+                        except Exception as exc:
+                            st.error(f"Send failed: {exc}")
                 a1, a2, a3 = st.columns(3)
                 if a1.button(
                     "Approve",
@@ -4847,6 +4923,7 @@ def icp_agent_tab(base_url: str) -> None:
                                         "llm_model": llm_model,
                                         "created_by": "streamlit-user",
                                     },
+                                    timeout=900,
                                 )
                                 st.session_state["sdr_pipeline_result"] = pipeline_result
                                 summary = pipeline_result.get("summary", {})
@@ -5167,6 +5244,7 @@ def enrichment_agent_tab(base_url: str) -> None:
                             "llm_model": pipeline_model,
                             "created_by": "streamlit-user",
                         },
+                        timeout=900,
                     )
                     st.session_state["sdr_pipeline_result"] = result
                     st.success("Full SDR pipeline completed.")

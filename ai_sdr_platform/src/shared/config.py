@@ -12,6 +12,10 @@ _DEFAULT_DATABASE_URL = os.getenv("SDR_DATABASE_URL", "")
 class SDRSettings:
     app_name: str = os.getenv("SDR_APP_NAME", "ai-sdr-platform")
     environment: str = os.getenv("SDR_ENVIRONMENT", "local")
+    # Local Ollama server used by the shared LLM router (enrichment, personalization,
+    # ICP suggestions, outreach copy).
+    llm_base_url: str = os.getenv("SDR_LLM_BASE_URL", "http://127.0.0.1:11434")
+    llm_timeout_seconds: float = float(os.getenv("SDR_LLM_TIMEOUT_SECONDS", "180"))
     icp_database_url: str = os.getenv("SDR_ICP_DATABASE_URL", "") or _DEFAULT_DATABASE_URL
     discovery_database_url: str = os.getenv("SDR_DISCOVERY_DATABASE_URL", "") or _DEFAULT_DATABASE_URL
     discovery_provider: str = os.getenv("SDR_DISCOVERY_PROVIDER", "public")
@@ -89,8 +93,25 @@ class SDRSettings:
         "SDR_INTELLIGENCE_QUALIFICATION_MODEL_VERSION", "unconfigured"
     )
     qualification_database_url: str = os.getenv("SDR_QUALIFICATION_DATABASE_URL", "") or _DEFAULT_DATABASE_URL
+    # Qualification routing thresholds (0-100). Tuned lower than textbook values
+    # because the ML models run in heuristic mode, which scores conservatively.
+    qualification_sql_threshold: int = int(os.getenv("SDR_QUALIFICATION_SQL_THRESHOLD", "70"))
+    qualification_mql_threshold: int = int(os.getenv("SDR_QUALIFICATION_MQL_THRESHOLD", "50"))
+    qualification_nurture_threshold: int = int(os.getenv("SDR_QUALIFICATION_NURTURE_THRESHOLD", "30"))
     outreach_database_url: str = os.getenv("SDR_OUTREACH_DATABASE_URL", "") or _DEFAULT_DATABASE_URL
     outreach_provider: str = os.getenv("SDR_OUTREACH_PROVIDER", "dry_run")
+    # AI outreach copy: when enabled, message bodies are written by the LLM from
+    # the prospect's enrichment data instead of the deterministic template.
+    outreach_ai_enabled: bool = (
+        os.getenv("SDR_OUTREACH_AI_ENABLED", "true").lower() == "true"
+    )
+    outreach_llm_model: str = os.getenv("SDR_OUTREACH_LLM_MODEL", "llama3.1:8b")
+    outreach_llm_provider: str = os.getenv("SDR_OUTREACH_LLM_PROVIDER", "ollama_local")
+    outreach_offer_summary: str = os.getenv(
+        "SDR_OUTREACH_OFFER_SUMMARY",
+        "an AI-powered SDR platform that automates prospect research, qualification, "
+        "and personalized outreach for revenue teams",
+    )
     outreach_sender_name: str = os.getenv("SDR_OUTREACH_SENDER_NAME", "SDR Team")
     outreach_from_email: str = os.getenv("SDR_OUTREACH_FROM_EMAIL", "")
     outreach_smtp_host: str = os.getenv("SDR_OUTREACH_SMTP_HOST", "")

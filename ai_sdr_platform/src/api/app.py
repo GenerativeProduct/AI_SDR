@@ -84,8 +84,17 @@ def create_app(llm_router: object | None = None, opensearch_web: object | None =
         auto_llm_router, auto_opensearch_web = _optional_backend_services()
         llm_router = llm_router or auto_llm_router
         opensearch_web = opensearch_web or auto_opensearch_web
+    # No backend LLM router present -> use the local Ollama router so enrichment,
+    # personalization, ICP suggestions and outreach copy actually use the model.
+    if llm_router is None:
+        from ai_sdr_platform.src.shared.llm_router import OllamaLLMRouter
+        llm_router = OllamaLLMRouter()
+        import logging
+        logging.getLogger("sdr.llm").info(
+            "Using local Ollama LLM router at %s", getattr(llm_router, "base_url", "?")
+        )
     configure_prospect_discovery_service(opensearch_web=opensearch_web)
-    configure_outreach_service()
+    configure_outreach_service(llm_router=llm_router)
     configure_follow_up_service()
     configure_qualification_service()
     configure_crm_service()

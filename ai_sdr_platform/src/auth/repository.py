@@ -65,7 +65,7 @@ class SQLAlchemyAuthRepository:
     def __init__(self, db_url: str | None = None) -> None:
         database_url = db_url or self._default_db_url()
         connect_args = {"check_same_thread": False} if database_url.startswith("sqlite") else {}
-        self.engine = create_engine(database_url, future=True, connect_args=connect_args)
+        self.engine = create_engine(database_url, future=True, connect_args=connect_args, pool_pre_ping=True, pool_recycle=300)
         self.SessionLocal = sessionmaker(bind=self.engine, autoflush=False, autocommit=False, future=True)
         Base.metadata.create_all(self.engine)
 

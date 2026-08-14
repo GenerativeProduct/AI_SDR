@@ -4,6 +4,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from uuid import uuid4
 
+import logging
+
+from ai_sdr_platform.src.agents.outreach import ai_writer
 from ai_sdr_platform.src.agents.outreach.composer import MessageComposer
 from ai_sdr_platform.src.agents.outreach.models import (
     OutreachCampaign,
@@ -18,6 +21,9 @@ from ai_sdr_platform.src.agents.outreach.providers import ProviderRegistry
 from ai_sdr_platform.src.agents.outreach.rate_limit import OutreachRateLimiter
 from ai_sdr_platform.src.agents.outreach.repository import OutreachRepository
 from ai_sdr_platform.src.agents.outreach.review import ReviewApprovalAgent
+from ai_sdr_platform.src.shared.config import settings
+
+logger = logging.getLogger("sdr.outreach")
 
 
 @dataclass
@@ -29,6 +35,66 @@ class OutreachService:
     reviewer: ReviewApprovalAgent = field(default_factory=ReviewApprovalAgent)
     rate_limiter: OutreachRateLimiter = field(default_factory=OutreachRateLimiter)
     observability: OutreachObservability = field(default_factory=OutreachObservability)
+    llm_router: object | None = None            # for AI-written copy
+    enrichment_repository: object | None = None  # to fetch enrichment by account_id
+
+    # ------------------------------------------------------------------
+    def _ai_context(self, account_id: str) -> tuple[str, list[str], list[str]]:
+        """Pull company summary / signals / pain points from the latest enrichment."""
+        summary, signals, pains = "", [], []
+        repo = self.enrichment_repository
+        if repo is not None and hasattr(repo, "get_latest"):
+            try:
+                enr = repo.get_latest(account_id)
+            except Exception as exc:
+                logger.error("Could not load enrichment for %s: %s", account_id, exc)
+                enr = None
+            if enr is not None:
+                summary = getattr(enr, "company_summary", "") or ""
+                pains = list(getattr(enr, "pain_point_hypotheses", []) or [])
+                for s in getattr(enr, "signals", []) or []:
+                    detail = getattr(s, "detail", None) or (s.get("detail") if isinstance(s, dict) else None)
+                    if detail:
+                        signals.append(str(detail))
+        return summary, signals, pains
+
+    def _ai_rewrite(self, request: OutreachCampaignRequest, messages: list) -> None:
+        """Replace each message body/subject with LLM-written copy (best effort)."""
+        if not settings.outreach_ai_enabled or self.llm_router is None:
+            return
+        contact = request.contact
+        first_name = (contact.full_name or "").split()[0] if contact.full_name else ""
+        summary, signals, pains = self._ai_context(contact.account_id)
+        for message in messages:
+            written = ai_writer.generate_message(
+                self.llm_router,
+                channel=message.channel,
+                first_name=first_name,
+                title=contact.title or "",
+                company=request.intelligence.company_name,
+                company_summary=summary,
+                signals=signals,
+                pain_points=pains,
+                offer=settings.outreach_offer_summary,
+                model_name=settings.outreach_llm_model,
+                provider=settings.outreach_llm_provider,
+            )
+            if not written:
+                continue
+            original_body, original_subject = message.body, message.subject
+            new_body = written["body"]
+            # The review gate requires an opt-out line on emails; the model often
+            # omits it, so append a compliant one when missing.
+            if message.channel == "email" and "unsubscribe" not in new_body.lower():
+                new_body = new_body.rstrip() + "\n\nIf you'd prefer not to hear from me, reply 'unsubscribe'."
+            message.body = new_body
+            if message.channel == "email" and written.get("subject"):
+                message.subject = written["subject"]
+            # Safety net: keep the AI copy only if it still passes review; else
+            # revert to the template (which passed) so a campaign never fails.
+            if not self.reviewer.review(message, request.intelligence).passed:
+                message.body, message.subject = original_body, original_subject
+                logger.info("AI copy failed review for %s; kept template draft.", contact.full_name)
 
     def create_campaign(self, request: OutreachCampaignRequest) -> OutreachCampaign:
         with self.observability.span(
@@ -56,6 +122,11 @@ class OutreachService:
 
             campaign_id = str(uuid4())
             messages = self.composer.compose(campaign_id, request, channels)
+            # Stash the contact title so a later "regenerate" can rebuild context.
+            for message in messages:
+                message.metadata["contact_title"] = request.contact.title or ""
+            # Rewrite the template drafts with AI copy from the prospect's data.
+            self._ai_rewrite(request, messages)
             for message in messages:
                 message.review = self.reviewer.review(message, request.intelligence)
                 if not message.review.passed:
@@ -132,6 +203,42 @@ class OutreachService:
                 "sent", "delivered", "replied", "failed", "suppressed", "human_task"
             }
             for message in campaign.messages
+        ):
+            campaign.status = "completed"
+        campaign.updated_at = now
+        return self.repository.save_campaign(campaign)
+
+    def send_message(self, campaign_id: str, message_id: str, *, force: bool = True) -> OutreachCampaign:
+        """Send a single message (one channel) through its configured provider."""
+        campaign = self._require_campaign(campaign_id)
+        if campaign.status not in {"approved", "running"}:
+            raise ValueError(
+                f"Approve the campaign before sending (current status: {campaign.status})."
+            )
+        message = self._find_message(campaign, message_id)
+        if message.status in {"sent", "delivered", "replied", "human_task"}:
+            raise ValueError(f"This message was already handled (status: {message.status}).")
+        now = datetime.now(timezone.utc)
+        campaign.status = "running"
+        allowed, reason = self.rate_limiter.acquire(message.recipient)
+        if not allowed:
+            message.status = "queued"
+            message.metadata["rate_limit_reason"] = reason
+        else:
+            try:
+                provider = self.providers.for_message(message)
+                result = provider.send(message)
+                message.provider = result.provider
+                message.provider_message_id = result.provider_message_id
+                message.status = result.status
+                message.metadata["provider_detail"] = result.detail
+            except Exception as exc:
+                message.status = "failed"
+                message.metadata["provider_error"] = str(exc)
+        message.updated_at = now
+        if all(
+            m.status in {"sent", "delivered", "replied", "failed", "suppressed", "human_task"}
+            for m in campaign.messages
         ):
             campaign.status = "completed"
         campaign.updated_at = now
@@ -219,6 +326,56 @@ class OutreachService:
 
     def get_campaign(self, campaign_id: str) -> OutreachCampaign | None:
         return self.repository.get_campaign(campaign_id)
+
+    def _find_message(self, campaign: OutreachCampaign, message_id: str):
+        message = next((m for m in campaign.messages if m.message_id == message_id), None)
+        if message is None:
+            raise ValueError("Message not found in campaign.")
+        return message
+
+    def regenerate_message(self, campaign_id: str, message_id: str) -> OutreachCampaign:
+        """Re-run the AI writer for a single message using the prospect's data."""
+        if self.llm_router is None:
+            raise ValueError("No LLM is configured for AI regeneration.")
+        campaign = self._require_campaign(campaign_id)
+        message = self._find_message(campaign, message_id)
+        first_name = (campaign.contact_name or "").split()[0] if campaign.contact_name else ""
+        title = str(message.metadata.get("contact_title") or "")
+        summary, signals, pains = self._ai_context(campaign.account_id)
+        written = ai_writer.generate_message(
+            self.llm_router,
+            channel=message.channel,
+            first_name=first_name,
+            title=title,
+            company=campaign.company_name,
+            company_summary=summary,
+            signals=signals,
+            pain_points=pains,
+            offer=settings.outreach_offer_summary,
+            model_name=settings.outreach_llm_model,
+            provider=settings.outreach_llm_provider,
+        )
+        if not written or not written.get("body"):
+            raise ValueError("The model did not return usable copy; try again.")
+        body = written["body"]
+        if message.channel == "email" and "unsubscribe" not in body.lower():
+            body = body.rstrip() + "\n\nIf you'd prefer not to hear from me, reply 'unsubscribe'."
+        message.body = body
+        if message.channel == "email" and written.get("subject"):
+            message.subject = written["subject"]
+        return self.repository.save_campaign(campaign)
+
+    def update_message(
+        self, campaign_id: str, message_id: str, subject: str | None = None, body: str | None = None
+    ) -> OutreachCampaign:
+        """Save user edits to a message's subject/body."""
+        campaign = self._require_campaign(campaign_id)
+        message = self._find_message(campaign, message_id)
+        if subject is not None:
+            message.subject = subject
+        if body is not None and body.strip():
+            message.body = body
+        return self.repository.save_campaign(campaign)
 
     def list_campaigns(self, status: str | None = None) -> list[OutreachCampaign]:
         return self.repository.list_campaigns(status=status)

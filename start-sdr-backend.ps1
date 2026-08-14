@@ -23,6 +23,13 @@ $ApolloKey = ""
 $NeonDbUrl = ""
 $HunterApiKey = ""
 $SerperApiKey = ""
+$OutreachProvider = "dry_run"
+$BrevoApiKey = ""
+$OutreachFromEmail = ""
+$OutreachFromName = "SDR Team"
+$TwilioAccountSid = ""
+$TwilioAuthToken = ""
+$TwilioFromNumber = ""
 if (Test-Path ".\secrets.local.ps1") {
     . ".\secrets.local.ps1"
 }
@@ -68,6 +75,18 @@ if ($SerperApiKey) {
 } else {
     Write-Host "Enrichment search: SearXNG only (no Serper key set)" -ForegroundColor Yellow
 }
+
+# --- Real outreach sending providers (blank = dry-run) ---
+$env:SDR_OUTREACH_PROVIDER = $OutreachProvider
+if ($BrevoApiKey)       { $env:SDR_OUTREACH_BREVO_API_KEY = $BrevoApiKey }
+if ($OutreachFromEmail) { $env:SDR_OUTREACH_FROM_EMAIL    = $OutreachFromEmail }
+if ($OutreachFromName)  { $env:SDR_OUTREACH_SENDER_NAME   = $OutreachFromName }
+if ($TwilioAccountSid)  { $env:SDR_OUTREACH_TWILIO_ACCOUNT_SID = $TwilioAccountSid }
+if ($TwilioAuthToken)   { $env:SDR_OUTREACH_TWILIO_AUTH_TOKEN  = $TwilioAuthToken }
+if ($TwilioFromNumber)  { $env:SDR_OUTREACH_TWILIO_FROM_NUMBER = $TwilioFromNumber }
+$_emailReal = if ($OutreachProvider -ne "dry_run") { "REAL ($OutreachProvider)" } else { "dry-run" }
+$_smsReal   = if ($TwilioAccountSid) { "REAL (twilio)" } else { "dry-run" }
+Write-Host "Outreach sending: email=$_emailReal | sms=$_smsReal" -ForegroundColor Green
 
 # --- Core settings (same every run) ---
 $env:SDR_API_BASE_URL                 = "http://127.0.0.1:8011"
