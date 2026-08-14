@@ -27,6 +27,7 @@ from ai_sdr_platform.src.api.routes.routes_prospect_intelligence import (
     get_prospect_intelligence_service,
 )
 from ai_sdr_platform.src.agents.outreach.models import OutreachCampaign, OutreachCampaignRequest
+from ai_sdr_platform.src.agents.outreach.outreach_service import OutreachDraftEligibility
 from ai_sdr_platform.src.agents.outreach.service import OutreachService
 from ai_sdr_platform.src.api.routes.routes_outreach import get_outreach_service
 from ai_sdr_platform.src.agents.follow_up.models import FollowUpPlan, FollowUpPlanRequest
@@ -95,6 +96,7 @@ def _execute_pipeline(
     outreach_campaigns: list[OutreachCampaign] = []
     follow_up_plans: list[FollowUpPlan] = []
     warnings: list[str] = []
+    outreach_draft_eligibility = OutreachDraftEligibility()
     contacts_by_id: dict[str, DiscoveredContact] = {
         contact.contact_id: contact for contact in discovery.contacts
     }
@@ -190,7 +192,25 @@ def _execute_pipeline(
             warnings.append(f"Qualification skipped for {contact.full_name}: {exc}.")
             continue
         qualification_results.append(qualification)
-        if qualification.qualification_status not in {"SQL", "MQL"}:
+        draft_request = OutreachCampaignRequest(
+            intelligence=intelligence,
+            contact=contact,
+            require_approval=True,
+            created_by=payload.created_by,
+        )
+        requested_channels = outreach_draft_eligibility.requested_channels(
+            draft_request, outreach_service.policy_agent
+        )
+        nurture_draft = outreach_draft_eligibility.eligible_nurture_draft(
+            qualification, contact, requested_channels
+        )
+        if not requested_channels:
+            warnings.append(
+                f"Outreach skipped for {intelligence.contact_name}: no valid email or "
+                "policy-eligible SMS number is available."
+            )
+            continue
+        if qualification.qualification_status not in {"SQL", "MQL"} and not nurture_draft:
             warnings.append(
                 f"Outreach skipped for {intelligence.contact_name}: "
                 f"Qualification Agent routed the prospect to "
@@ -200,11 +220,8 @@ def _execute_pipeline(
         try:
             outreach_campaigns.append(
                 outreach_service.create_campaign(
-                    OutreachCampaignRequest(
-                        intelligence=intelligence,
-                        contact=contact,
-                        require_approval=True,
-                        created_by=payload.created_by,
+                    draft_request.model_copy(
+                        update={"requested_channels": requested_channels}
                     )
                 )
             )

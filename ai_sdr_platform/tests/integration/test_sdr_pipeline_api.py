@@ -93,6 +93,23 @@ class QualifiedTestService(QualificationService):
         )
 
 
+class NurtureTestService(QualificationService):
+    def qualify(self, request):
+        result = super().qualify(request)
+        return self.repository.save(
+            QualificationResult(
+                **{
+                    **result.model_dump(),
+                    "qualification_score": 49,
+                    "qualification_tier": "Tier 3",
+                    "qualification_status": "Nurture",
+                    "sales_ready": False,
+                    "next_action": "Nurture and collect qualification evidence",
+                }
+            )
+        )
+
+
 def build_client(tmp_path: Path) -> TestClient:
     icp_repo = SQLAlchemyICPRepository(db_url=f"sqlite:///{(tmp_path / 'icp.db').resolve()}")
     discovery_repo = SQLAlchemyProspectDiscoveryRepository(db_url=f"sqlite:///{(tmp_path / 'discovery.db').resolve()}")
@@ -208,6 +225,45 @@ def test_full_sdr_pipeline_runs_icp_discovery_and_enrichment(tmp_path: Path) -> 
     assert body["outreach_campaigns"][0]["status"] == "pending_approval"
     assert body["outreach_campaigns"][0]["messages"][0]["review"]["passed"] is True
     assert body["follow_up_plans"][0]["status"] == "pending_approval"
+
+
+def test_pipeline_creates_approval_required_email_drafts_for_nurture_contacts(
+    tmp_path: Path,
+) -> None:
+    client = build_client(tmp_path)
+    nurture_repo = SQLAlchemyQualificationRepository(
+        db_url=f"sqlite:///{(tmp_path / 'nurture-qualification.db').resolve()}"
+    )
+    routes_qualification._repository = nurture_repo
+    routes_qualification._service = NurtureTestService(repository=nurture_repo)
+
+    response = client.post(
+        "/sdr/pipeline/run?sync=true",
+        json={
+            "icp_payload": {
+                "industries": ["SaaS"],
+                "geographies": ["Europe"],
+                "target_personas": ["RevOps"],
+                "pain_points": ["pipeline visibility"],
+            },
+            "discovery_limit": 3,
+            "enrich_top_accounts": 2,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["qualification_results"][0]["qualification_status"] == "Nurture"
+    assert body["summary"]["campaigns_drafted"] >= 1
+    campaign = body["outreach_campaigns"][0]
+    assert campaign["status"] == "pending_approval"
+    assert campaign["messages"][0]["channel"] == "email"
+    contact_by_id = {
+        contact["contact_id"]: contact for contact in body["discovered_contacts"]
+    }
+    assert campaign["messages"][0]["recipient"] == contact_by_id[
+        campaign["contact_id"]
+    ]["email"]
 
     campaign_id = body["outreach_campaigns"][0]["campaign_id"]
     approved = client.post(

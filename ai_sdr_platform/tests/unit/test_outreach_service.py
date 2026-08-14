@@ -3,7 +3,10 @@ from pathlib import Path
 from ai_sdr_platform.src.agents.outreach.models import OutreachCampaignRequest
 from ai_sdr_platform.src.agents.outreach.repository import SQLAlchemyOutreachRepository
 from ai_sdr_platform.src.agents.outreach.service import OutreachService
-from ai_sdr_platform.src.agents.outreach.providers import BrevoEmailProvider
+from ai_sdr_platform.src.agents.outreach.providers import (
+    BrevoEmailProvider,
+    ResendEmailProvider,
+)
 from ai_sdr_platform.src.agents.prospect_discovery.models import DiscoveredContact
 from ai_sdr_platform.src.agents.prospect_intelligence.models import (
     IntentAssessment,
@@ -118,7 +121,7 @@ def test_brevo_provider_builds_transactional_request(monkeypatch) -> None:
         return Response()
 
     monkeypatch.setattr(
-        "ai_sdr_platform.src.agents.outreach.providers.requests.post", fake_post
+        "ai_sdr_platform.src.agents.outreach.email_provider.requests.post", fake_post
     )
     provider = BrevoEmailProvider(
         api_key="test-key",
@@ -146,3 +149,47 @@ def test_brevo_provider_builds_transactional_request(monkeypatch) -> None:
     assert captured["headers"]["api-key"] == "test-key"
     assert captured["json"]["to"][0]["email"] == "prospect@example.com"
     assert captured["json"]["headers"]["Idempotency-Key"] == "idempotency-1"
+
+
+def test_resend_provider_uses_the_message_recipient(monkeypatch) -> None:
+    captured = {}
+
+    class Response:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, str]:
+            return {"id": "resend-message-id"}
+
+    def fake_post(url, **kwargs):
+        captured["url"] = url
+        captured.update(kwargs)
+        return Response()
+
+    monkeypatch.setattr(
+        "ai_sdr_platform.src.agents.outreach.email_provider.requests.post", fake_post
+    )
+    provider = ResendEmailProvider(
+        api_key="test-key",
+        from_email="verified@example.com",
+        from_name="SDR Team",
+    )
+    from ai_sdr_platform.src.agents.outreach.models import OutreachMessage
+
+    result = provider.send(
+        OutreachMessage(
+            campaign_id="campaign-1",
+            intelligence_id="intelligence-1",
+            contact_id="contact-1",
+            channel="email",
+            recipient="discovered.prospect@example.com",
+            subject="A relevant idea",
+            body="Hello from the SDR platform.",
+            idempotency_key="idempotency-1",
+        )
+    )
+    assert result.provider == "resend"
+    assert result.provider_message_id == "resend-message-id"
+    assert captured["url"] == "https://api.resend.com/emails"
+    assert captured["headers"]["Authorization"] == "Bearer test-key"
+    assert captured["json"]["to"] == ["discovered.prospect@example.com"]
