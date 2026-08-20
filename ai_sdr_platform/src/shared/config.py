@@ -120,6 +120,12 @@ class SDRSettings:
     outreach_smtp_password: str = os.getenv("SDR_OUTREACH_SMTP_PASSWORD", "")
     outreach_aws_region: str = os.getenv("SDR_OUTREACH_AWS_REGION", "us-east-1")
     outreach_brevo_api_key: str = os.getenv("SDR_OUTREACH_BREVO_API_KEY", "")
+    outreach_resend_api_key: str = os.getenv(
+        "SDR_OUTREACH_RESEND_API_KEY", os.getenv("RESEND_API_KEY", "")
+    )
+    outreach_resend_base_url: str = os.getenv(
+        "SDR_OUTREACH_RESEND_BASE_URL", "https://api.resend.com/emails"
+    )
     outreach_reply_to_email: str = os.getenv("SDR_OUTREACH_REPLY_TO_EMAIL", "")
     outreach_twilio_account_sid: str = os.getenv("SDR_OUTREACH_TWILIO_ACCOUNT_SID", "")
     outreach_twilio_auth_token: str = os.getenv("SDR_OUTREACH_TWILIO_AUTH_TOKEN", "")
@@ -247,4 +253,3 @@ class SDRSettings:
 
 
 settings = SDRSettings()
-

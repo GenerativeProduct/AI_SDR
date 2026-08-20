@@ -60,7 +60,7 @@ export SDR_ENRICHMENT_LLM_PROVIDER="ollama_local"
 export SDR_ENRICHMENT_LLM_MODEL="llama3.2:3b"
 export SDR_INTELLIGENCE_METARANK_URL="http://127.0.0.1:8081"
 export SDR_INTELLIGENCE_METARANK_MODEL="sdr-prospect-ranker"
-export SDR_OUTREACH_PROVIDER="dry_run"
+export SDR_OUTREACH_PROVIDER="${SDR_OUTREACH_PROVIDER:-dry_run}"
 
 echo -e "${CYAN}Starting SDR backend on http://127.0.0.1:8011 ...${NC}"
 uvicorn ai_sdr_platform.src.api.app:app --host 127.0.0.1 --port 8011 --reload

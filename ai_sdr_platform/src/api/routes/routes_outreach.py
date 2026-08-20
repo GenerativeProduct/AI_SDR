@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query
 
 from ai_sdr_platform.src.agents.outreach.composer import MessageComposer
 from ai_sdr_platform.src.agents.outreach.models import (
+    Channel,
     CampaignApprovalRequest,
     CampaignListResponse,
     CampaignPauseRequest,
@@ -24,6 +25,7 @@ from ai_sdr_platform.src.agents.outreach.providers import (
     BrevoEmailProvider,
     HumanTaskProvider,
     ProviderRegistry,
+    ResendEmailProvider,
     SESEmailProvider,
     SMTPEmailProvider,
     TwilioMessagingProvider,
@@ -96,6 +98,18 @@ def _build_provider_registry() -> ProviderRegistry:
             from_email=settings.outreach_from_email,
             from_name=settings.outreach_sender_name,
             reply_to_email=settings.outreach_reply_to_email or None,
+        )
+    elif settings.outreach_provider == "resend":
+        if not settings.outreach_resend_api_key or not settings.outreach_from_email:
+            raise RuntimeError(
+                "Resend outreach requires SDR_OUTREACH_RESEND_API_KEY and SDR_OUTREACH_FROM_EMAIL."
+            )
+        email = ResendEmailProvider(
+            api_key=settings.outreach_resend_api_key,
+            from_email=settings.outreach_from_email,
+            from_name=settings.outreach_sender_name,
+            reply_to_email=settings.outreach_reply_to_email or None,
+            base_url=settings.outreach_resend_base_url,
         )
 
     sms = dry
@@ -197,9 +211,12 @@ def edit_message(
 def send_campaign(
     campaign_id: str,
     force: bool = Query(default=False),
+    channel: Channel | None = Query(default=None),
     service: OutreachService = Depends(get_outreach_service),
 ) -> OutreachCampaign:
-    return _campaign_action(lambda: service.send_due(campaign_id, force=force))
+    return _campaign_action(
+        lambda: service.send_due(campaign_id, force=force, channel=channel)
+    )
 
 
 @router.post(

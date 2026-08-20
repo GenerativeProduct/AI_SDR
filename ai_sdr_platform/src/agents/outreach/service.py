@@ -9,6 +9,7 @@ import logging
 from ai_sdr_platform.src.agents.outreach import ai_writer
 from ai_sdr_platform.src.agents.outreach.composer import MessageComposer
 from ai_sdr_platform.src.agents.outreach.models import (
+    Channel,
     OutreachCampaign,
     OutreachCampaignRequest,
     OutreachEvent,
@@ -170,13 +171,21 @@ class OutreachService:
                 message.updated_at = now
         return self.repository.save_campaign(campaign)
 
-    def send_due(self, campaign_id: str, *, force: bool = False) -> OutreachCampaign:
+    def send_due(
+        self,
+        campaign_id: str,
+        *,
+        force: bool = False,
+        channel: Channel | None = None,
+    ) -> OutreachCampaign:
         campaign = self._require_campaign(campaign_id)
         if campaign.status not in {"approved", "running"}:
             raise ValueError(f"Campaign cannot send from status {campaign.status}.")
         now = datetime.now(timezone.utc)
         campaign.status = "running"
         for message in campaign.messages:
+            if channel is not None and message.channel != channel:
+                continue
             if message.status not in {"approved", "queued"}:
                 continue
             if not force and message.scheduled_at > now:
