@@ -25,7 +25,7 @@ class SQLAlchemyConversationRepository:
     def __init__(self, db_url: str | None = None) -> None:
         url = db_url or settings.conversation_database_url or self._default_url()
         args = {"check_same_thread": False} if url.startswith("sqlite") else {}
-        self.engine = create_engine(url, future=True, connect_args=args)
+        self.engine = create_engine(url, future=True, connect_args=args, pool_pre_ping=True, pool_recycle=300)
         self.SessionLocal = sessionmaker(bind=self.engine, future=True)
         Base.metadata.create_all(self.engine)
 

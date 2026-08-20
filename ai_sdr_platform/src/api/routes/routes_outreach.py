@@ -12,6 +12,7 @@ from ai_sdr_platform.src.agents.outreach.models import (
     CampaignApprovalRequest,
     CampaignListResponse,
     CampaignPauseRequest,
+    MessageEditRequest,
     OpenClawCommand,
     OpenClawCommandResult,
     OutreachCampaign,
@@ -32,6 +33,7 @@ from ai_sdr_platform.src.agents.outreach.providers import (
 from ai_sdr_platform.src.agents.outreach.rate_limit import OutreachRateLimiter
 from ai_sdr_platform.src.agents.outreach.repository import SQLAlchemyOutreachRepository
 from ai_sdr_platform.src.agents.outreach.service import OutreachService
+from ai_sdr_platform.src.agents.enrichment.repository import SQLAlchemyEnrichmentRepository
 from ai_sdr_platform.src.api.routes.routes_prospect_intelligence import (
     get_prospect_intelligence_service,
 )
@@ -40,10 +42,11 @@ from ai_sdr_platform.src.shared.config import settings
 
 router = APIRouter(prefix="/outreach", tags=["outreach"])
 _repository = SQLAlchemyOutreachRepository()
+_enrichment_repository = SQLAlchemyEnrichmentRepository()
 _service = OutreachService(repository=_repository)
 
 
-def configure_outreach_service() -> OutreachService:
+def configure_outreach_service(llm_router: object | None = None) -> OutreachService:
     global _service
     providers = _build_provider_registry()
     _service = OutreachService(
@@ -54,6 +57,8 @@ def configure_outreach_service() -> OutreachService:
             max_per_minute=settings.outreach_max_per_minute,
             max_per_recipient_per_day=settings.outreach_max_per_recipient_per_day,
         ),
+        llm_router=llm_router,                       # AI-written outreach copy
+        enrichment_repository=_enrichment_repository,  # source data for the AI
     )
     return _service
 
@@ -175,6 +180,33 @@ def approve_campaign(
     return _campaign_action(lambda: service.approve_campaign(campaign_id, payload.approved_by))
 
 
+@router.post(
+    "/campaigns/{campaign_id}/messages/{message_id}/regenerate",
+    response_model=OutreachCampaign,
+)
+def regenerate_message(
+    campaign_id: str,
+    message_id: str,
+    service: OutreachService = Depends(get_outreach_service),
+) -> OutreachCampaign:
+    return _campaign_action(lambda: service.regenerate_message(campaign_id, message_id))
+
+
+@router.patch(
+    "/campaigns/{campaign_id}/messages/{message_id}",
+    response_model=OutreachCampaign,
+)
+def edit_message(
+    campaign_id: str,
+    message_id: str,
+    payload: MessageEditRequest,
+    service: OutreachService = Depends(get_outreach_service),
+) -> OutreachCampaign:
+    return _campaign_action(
+        lambda: service.update_message(campaign_id, message_id, payload.subject, payload.body)
+    )
+
+
 @router.post("/campaigns/{campaign_id}/send", response_model=OutreachCampaign)
 def send_campaign(
     campaign_id: str,
@@ -184,6 +216,21 @@ def send_campaign(
 ) -> OutreachCampaign:
     return _campaign_action(
         lambda: service.send_due(campaign_id, force=force, channel=channel)
+    )
+
+
+@router.post(
+    "/campaigns/{campaign_id}/messages/{message_id}/send",
+    response_model=OutreachCampaign,
+)
+def send_message(
+    campaign_id: str,
+    message_id: str,
+    force: bool = Query(default=True),
+    service: OutreachService = Depends(get_outreach_service),
+) -> OutreachCampaign:
+    return _campaign_action(
+        lambda: service.send_message(campaign_id, message_id, force=force)
     )
 
 

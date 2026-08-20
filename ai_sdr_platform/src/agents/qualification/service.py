@@ -10,6 +10,7 @@ from ai_sdr_platform.src.agents.qualification.models import (
     QualificationRequest,
     QualificationResult,
 )
+from ai_sdr_platform.src.shared.config import settings
 from ai_sdr_platform.src.agents.qualification.repository import (
     QualificationRepository,
 )
@@ -110,10 +111,10 @@ class QualificationService:
     def _recommend(
         score: int, missing: list[str]
     ) -> tuple[str, str, bool, str]:
-        if score >= 80 and len(missing) <= 3:
+        if score >= settings.qualification_sql_threshold and len(missing) <= 3:
             return "SQL", "Tier 1", True, "Push to Outreach"
-        if score >= 65:
+        if score >= settings.qualification_mql_threshold:
             return "MQL", "Tier 2", False, "Assign SDR to validate missing qualification evidence"
-        if score >= 40:
+        if score >= settings.qualification_nurture_threshold:
             return "Nurture", "Tier 3", False, "Nurture and collect qualification evidence"
         return "Disqualified", "Tier 3", False, "Do not prioritize for active outreach"

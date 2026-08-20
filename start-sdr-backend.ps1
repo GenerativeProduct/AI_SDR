@@ -23,6 +23,17 @@ $ApolloKey = ""
 $NeonDbUrl = ""
 $HunterApiKey = ""
 $SerperApiKey = ""
+$OutreachProvider = "dry_run"
+$BrevoApiKey = ""
+$OutreachFromEmail = ""
+$OutreachFromName = "SDR Team"
+$SmtpHost = ""
+$SmtpPort = "587"
+$SmtpUsername = ""
+$SmtpPassword = ""
+$TwilioAccountSid = ""
+$TwilioAuthToken = ""
+$TwilioFromNumber = ""
 if (Test-Path ".\secrets.local.ps1") {
     . ".\secrets.local.ps1"
 }
@@ -69,6 +80,22 @@ if ($SerperApiKey) {
     Write-Host "Enrichment search: SearXNG only (no Serper key set)" -ForegroundColor Yellow
 }
 
+# --- Real outreach sending providers (blank = dry-run) ---
+$env:SDR_OUTREACH_PROVIDER = $OutreachProvider
+if ($BrevoApiKey)       { $env:SDR_OUTREACH_BREVO_API_KEY = $BrevoApiKey }
+if ($OutreachFromEmail) { $env:SDR_OUTREACH_FROM_EMAIL    = $OutreachFromEmail }
+if ($OutreachFromName)  { $env:SDR_OUTREACH_SENDER_NAME   = $OutreachFromName }
+if ($SmtpHost)          { $env:SDR_OUTREACH_SMTP_HOST     = $SmtpHost }
+if ($SmtpPort)          { $env:SDR_OUTREACH_SMTP_PORT     = $SmtpPort }
+if ($SmtpUsername)      { $env:SDR_OUTREACH_SMTP_USERNAME = $SmtpUsername }
+if ($SmtpPassword)      { $env:SDR_OUTREACH_SMTP_PASSWORD = $SmtpPassword }
+if ($TwilioAccountSid)  { $env:SDR_OUTREACH_TWILIO_ACCOUNT_SID = $TwilioAccountSid }
+if ($TwilioAuthToken)   { $env:SDR_OUTREACH_TWILIO_AUTH_TOKEN  = $TwilioAuthToken }
+if ($TwilioFromNumber)  { $env:SDR_OUTREACH_TWILIO_FROM_NUMBER = $TwilioFromNumber }
+$_emailReal = if ($OutreachProvider -ne "dry_run") { "REAL ($OutreachProvider)" } else { "dry-run" }
+$_smsReal   = if ($TwilioAccountSid) { "REAL (twilio)" } else { "dry-run" }
+Write-Host "Outreach sending: email=$_emailReal | sms=$_smsReal" -ForegroundColor Green
+
 # --- Core settings (same every run) ---
 $env:SDR_API_BASE_URL                 = "http://127.0.0.1:8011"
 $env:WEB_SEARCH_PROVIDER              = "searxng"
@@ -79,6 +106,9 @@ $env:SDR_ENRICHMENT_COLLECTION        = "sdr_enrichment"
 $env:SDR_ENRICHMENT_TOP_K             = "8"
 $env:SDR_ENRICHMENT_LLM_PROVIDER      = "ollama_local"
 $env:SDR_ENRICHMENT_LLM_MODEL         = "llama3.2:3b"
+# Pin outreach to the SAME model as enrichment/personalization so Ollama loads ONE
+# model and never thrashes reloading between 3b and 8b (the cause of the timeouts).
+$env:SDR_OUTREACH_LLM_MODEL           = "llama3.2:3b"
 $env:SDR_INTELLIGENCE_METARANK_URL    = "http://127.0.0.1:8081"
 $env:SDR_INTELLIGENCE_METARANK_MODEL  = "sdr-prospect-ranker"
 $env:SDR_OUTREACH_PROVIDER            = "dry_run"
