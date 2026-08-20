@@ -4172,6 +4172,9 @@ def icp_agent_tab(base_url: str) -> None:
                         f"**{channel.title()} touch {int(message.get('sequence_order', 0)) + 1}** "
                         "— AI-generated, editable"
                     )
+                    _recipient = message.get("recipient") or "—"
+                    _to_icon = "📧" if channel == "email" else ("💬" if channel in {"sms", "whatsapp"} else "🔗")
+                    st.markdown(f"{_to_icon} **Sending to:** `{_recipient}`")
                     new_subject = None
                     if channel == "email":
                         new_subject = st.text_input(
@@ -4184,10 +4187,15 @@ def icp_agent_tab(base_url: str) -> None:
                         key=f"body_{mkey}",
                     )
                     review = message.get("review", {}) or {}
+                    _msg_status = str(message.get("status", "draft"))
+                    _handled = _msg_status in {"sent", "delivered", "replied", "human_task", "failed"}
+                    _provider_txt = (
+                        f"Sent via: {message.get('provider', '?')}" if _handled else "Not sent yet"
+                    )
                     st.caption(
                         f"Review: {'passed' if review.get('passed') else 'blocked'} | "
-                        f"Provider: {message.get('provider', 'dry_run')} | "
-                        f"Status: {message.get('status', 'draft')}"
+                        f"{_provider_txt} | "
+                        f"Status: {_msg_status}"
                     )
                     _send_labels = {
                         "email": "📧 Send email",
@@ -4233,7 +4241,7 @@ def icp_agent_tab(base_url: str) -> None:
                         key=f"send_{mkey}",
                         use_container_width=True,
                         disabled=campaign.get("status") not in {"approved", "running"},
-                        help="Approve the campaign first. Sends via the configured provider (dry-run until you add a real key).",
+                        help="Approve the campaign first, then this sends the message for real via your configured provider (Brevo/Twilio).",
                     ):
                         try:
                             with st.spinner(f"Sending via {channel}..."):

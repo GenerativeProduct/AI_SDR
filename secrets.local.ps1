@@ -13,11 +13,15 @@ $HunterApiKey = "55d7c03ffe82d4badf303af5cd498b87e68c40f2"
 $SerperApiKey = "19b73d5a61758c9494cd75f37cbcead64a8d30ae"
 
 # ---- Real outreach sending (leave blank = dry-run / no send) ----
-# EMAIL via Brevo: set provider to "brevo", paste the key + a verified sender email.
-$OutreachProvider  = "dry_run"    # set to "brevo" (or "smtp"/"ses") to send real email
-$BrevoApiKey       = ""
-$OutreachFromEmail = ""           # e.g. you@yourdomain.com (must be a verified Brevo sender)
+# EMAIL via Brevo SMTP relay (using the xsmtpsib- SMTP key).
+$OutreachProvider  = "smtp"
+$SmtpHost          = "smtp-relay.brevo.com"
+$SmtpPort          = "587"
+$SmtpUsername      = "corporate@generativeproduct.io"   # your Brevo account login (SMTP Login)
+$SmtpPassword      = "xsmtpsib-53117e1774130a61def6756349ad8fbf1e61b332080cfb1ebf2c8c4763dd461d-uOYjLViDpoMCrT5i"
+$OutreachFromEmail = "corporate@generativeproduct.io"   # MUST be a verified Brevo sender
 $OutreachFromName  = "SDR Team"
+$BrevoApiKey       = ""           # (unused with SMTP; only for the REST 'brevo' provider)
 # SMS/WhatsApp via Twilio:
 $TwilioAccountSid  = ""
 $TwilioAuthToken   = ""
