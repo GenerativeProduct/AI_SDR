@@ -106,9 +106,8 @@ $env:SDR_ENRICHMENT_COLLECTION        = "sdr_enrichment"
 $env:SDR_ENRICHMENT_TOP_K             = "8"
 $env:SDR_ENRICHMENT_LLM_PROVIDER      = "ollama_local"
 $env:SDR_ENRICHMENT_LLM_MODEL         = "llama3.2:3b"
-# Pin outreach to the SAME model as enrichment/personalization so Ollama loads ONE
-# model and never thrashes reloading between 3b and 8b (the cause of the timeouts).
-$env:SDR_OUTREACH_LLM_MODEL           = "llama3.2:3b"
+# Email/outreach copy model (lighter = faster generation).
+$env:SDR_OUTREACH_LLM_MODEL           = "qwen3:0.6b"
 $env:SDR_INTELLIGENCE_METARANK_URL    = "http://127.0.0.1:8081"
 $env:SDR_INTELLIGENCE_METARANK_MODEL  = "sdr-prospect-ranker"
 $env:SDR_OUTREACH_PROVIDER            = "dry_run"
