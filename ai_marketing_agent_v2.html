@@ -1,0 +1,864 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+.app{padding:1rem 0;font-family:var(--font-sans);}
+.tabs{display:flex;gap:2px;border-bottom:0.5px solid var(--color-border-tertiary);margin-bottom:1.5rem;overflow-x:auto;}
+.tab{padding:8px 13px;font-size:13px;cursor:pointer;border:none;background:none;color:var(--color-text-secondary);border-bottom:2px solid transparent;margin-bottom:-0.5px;white-space:nowrap;}
+.tab.active{color:var(--color-text-primary);border-bottom:2px solid #1D9E75;font-weight:500;}
+.screen{display:none;}.screen.active{display:block;}
+.stitle{font-size:17px;font-weight:500;color:var(--color-text-primary);margin-bottom:3px;}
+.ssub{font-size:13px;color:var(--color-text-secondary);margin-bottom:1.25rem;}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:1.25rem;}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:1.25rem;}
+.grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:1.25rem;}
+.grid5{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:1.25rem;}
+.card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:13px 15px;cursor:pointer;}
+.card:hover{border-color:var(--color-border-secondary);}
+.card.sel{border:2px solid #1D9E75;background:#E1F5EE;}
+.card .ct{font-size:13px;font-weight:500;color:var(--color-text-primary);}
+.card .cs{font-size:12px;color:var(--color-text-secondary);margin-top:2px;}
+.card.sel .ct{color:#085041;}
+.card.sel .cs{color:#0F6E56;}
+.seg-card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:13px 15px;cursor:pointer;}
+.seg-card:hover{border-color:var(--color-border-secondary);}
+.seg-card.sel-bronze{border:2px solid #854F0B;background:#FAEEDA;}
+.seg-card.sel-silver{border:2px solid #5F5E5A;background:#F1EFE8;}
+.seg-card.sel-gold{border:2px solid #BA7517;background:#FAEEDA;}
+.seg-card.sel-platinum{border:2px solid #534AB7;background:#EEEDFE;}
+.seg-card .ct{font-size:13px;font-weight:500;color:var(--color-text-primary);}
+.seg-card .cs{font-size:12px;color:var(--color-text-secondary);margin-top:2px;}
+.seg-card.sel-bronze .ct{color:#633806;} .seg-card.sel-bronze .cs{color:#854F0B;}
+.seg-card.sel-silver .ct{color:#444441;} .seg-card.sel-silver .cs{color:#5F5E5A;}
+.seg-card.sel-gold .ct{color:#412402;} .seg-card.sel-gold .cs{color:#854F0B;}
+.seg-card.sel-platinum .ct{color:#26215C;} .seg-card.sel-platinum .cs{color:#534AB7;}
+.lc-card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:13px 15px;cursor:pointer;}
+.lc-card:hover{border-color:var(--color-border-secondary);}
+.lc-card.sel-new{border:2px solid #185FA5;background:#E6F1FB;}
+.lc-card.sel-active{border:2px solid #1D9E75;background:#E1F5EE;}
+.lc-card.sel-vip{border:2px solid #534AB7;background:#EEEDFE;}
+.lc-card.sel-atrisk{border:2px solid #BA7517;background:#FAEEDA;}
+.lc-card.sel-dormant{border:2px solid #5F5E5A;background:#F1EFE8;}
+.lc-card .ct{font-size:13px;font-weight:500;color:var(--color-text-primary);}
+.lc-card .cs{font-size:12px;color:var(--color-text-secondary);margin-top:2px;}
+.lc-card.sel-new .ct{color:#0C447C;} .lc-card.sel-new .cs{color:#185FA5;}
+.lc-card.sel-active .ct{color:#085041;} .lc-card.sel-active .cs{color:#0F6E56;}
+.lc-card.sel-vip .ct{color:#26215C;} .lc-card.sel-vip .cs{color:#534AB7;}
+.lc-card.sel-atrisk .ct{color:#633806;} .lc-card.sel-atrisk .cs{color:#854F0B;}
+.lc-card.sel-dormant .ct{color:#444441;} .lc-card.sel-dormant .cs{color:#5F5E5A;}
+.pill{font-size:11px;padding:3px 9px;border-radius:20px;display:inline-block;}
+.p-teal{background:#E1F5EE;color:#085041;}
+.p-amber{background:#FAEEDA;color:#854F0B;}
+.p-blue{background:#E6F1FB;color:#185FA5;}
+.p-purple{background:#EEEDFE;color:#3C3489;}
+.p-gray{background:#F1EFE8;color:#5F5E5A;}
+.p-green{background:#EAF3DE;color:#3B6D11;}
+.p-red{background:#FCEBEB;color:#A32D2D;}
+.p-coral{background:#FAECE7;color:#712B13;}
+.infobox{border-left:3px solid #1D9E75;padding:10px 14px;font-size:13px;color:var(--color-text-secondary);margin-bottom:1rem;border-radius:0;}
+.warnbox{border-left:3px solid #BA7517;padding:10px 14px;font-size:13px;color:#633806;background:#FAEEDA;margin-bottom:1rem;border-radius:0;}
+.successbox{border-left:3px solid #639922;padding:10px 14px;font-size:13px;color:#27500A;background:#EAF3DE;margin-bottom:1rem;border-radius:0;}
+.bluebox{border-left:3px solid #185FA5;padding:10px 14px;font-size:13px;color:#0C447C;background:#E6F1FB;margin-bottom:1rem;border-radius:0;}
+.next-btn{background:#1D9E75;color:white;border:none;border-radius:var(--border-radius-md);padding:10px 20px;font-size:14px;font-weight:500;cursor:pointer;width:100%;}
+.next-btn:hover{background:#0F6E56;}
+.back-btn{background:none;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:9px 16px;font-size:13px;color:var(--color-text-secondary);cursor:pointer;}
+.btn-row{display:flex;gap:8px;margin-top:1rem;}
+.btn-row .next-btn{flex:1;}
+.label{font-size:13px;font-weight:500;color:var(--color-text-secondary);margin-bottom:8px;}
+.oc{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:15px;margin-bottom:10px;}
+.otype{font-size:11px;font-weight:500;color:var(--color-text-secondary);letter-spacing:0.5px;margin-bottom:6px;}
+.osubj{font-size:14px;font-weight:500;color:var(--color-text-primary);margin-bottom:6px;}
+.obody{font-size:13px;color:var(--color-text-secondary);line-height:1.6;}
+.hl{color:#1D9E75;font-weight:500;}
+.metric-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:1.25rem;}
+.metric-grid6{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:1.25rem;}
+.metric{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:12px;text-align:center;}
+.metric .mv{font-size:22px;font-weight:500;color:var(--color-text-primary);}
+.metric .ml{font-size:11px;color:var(--color-text-secondary);margin-top:2px;}
+.flow-steps{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:1.5rem;}
+.fs{padding:5px 11px;border-radius:20px;font-size:11px;background:var(--color-background-secondary);color:var(--color-text-secondary);border:0.5px solid var(--color-border-tertiary);}
+.fs.done{background:#E1F5EE;color:#085041;border-color:#5DCAA5;}
+.fs.current{background:#1D9E75;color:white;border-color:#1D9E75;}
+.fa{font-size:12px;color:var(--color-text-secondary);}
+.toggle-row{display:flex;gap:8px;margin-bottom:1.25rem;}
+.toggle-btn{flex:1;padding:9px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-tertiary);background:var(--color-background-primary);font-size:13px;cursor:pointer;color:var(--color-text-secondary);}
+.toggle-btn.active-auto{border:2px solid #1D9E75;background:#E1F5EE;color:#085041;font-weight:500;}
+.toggle-btn.active-manual{border:2px solid #BA7517;background:#FAEEDA;color:#633806;font-weight:500;}
+.channel-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1.25rem;}
+.ch{padding:5px 12px;border-radius:20px;font-size:12px;border:0.5px solid var(--color-border-tertiary);background:var(--color-background-secondary);color:var(--color-text-secondary);}
+.ch.on{background:#E1F5EE;border-color:#1D9E75;color:#085041;font-weight:500;}
+.divider{height:0.5px;background:var(--color-border-tertiary);margin:1rem 0;}
+.nba-card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:14px 16px;margin-bottom:8px;display:flex;align-items:flex-start;gap:12px;}
+.nba-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
+.nba-pri{font-size:13px;font-weight:500;color:var(--color-text-primary);margin-bottom:3px;}
+.nba-sec{font-size:12px;color:var(--color-text-secondary);}
+.profile-row{display:flex;gap:8px;margin-bottom:1.25rem;flex-wrap:wrap;}
+.profile-kv{flex:1;min-width:140px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 12px;}
+.profile-kv .pk{font-size:11px;color:var(--color-text-secondary);margin-bottom:3px;}
+.profile-kv .pv{font-size:13px;font-weight:500;color:var(--color-text-primary);}
+.id-method{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:12px 15px;margin-bottom:8px;display:flex;align-items:center;gap:10px;}
+.id-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+</style>
+
+<div class="app">
+<div style="margin-bottom:1rem;">
+  <div style="font-size:20px;font-weight:500;color:var(--color-text-primary);margin-bottom:3px;">AI marketing agent — full prototype</div>
+  <div style="font-size:13px;color:var(--color-text-secondary);">11-stage walkthrough of the complete agent architecture</div>
+</div>
+
+<div class="flow-steps" id="flow-steps">
+  <div class="fs current" id="fs0">1. Interaction</div><div class="fa">→</div>
+  <div class="fs" id="fs1">2. Engagement</div><div class="fa">→</div>
+  <div class="fs" id="fs2">3. Identity</div><div class="fa">→</div>
+  <div class="fs" id="fs3">4. Profile 360</div><div class="fa">→</div>
+  <div class="fs" id="fs4">5. Personalise</div><div class="fa">→</div>
+  <div class="fs" id="fs5">6. Lead score</div><div class="fa">→</div>
+  <div class="fs" id="fs6">7. Segment</div><div class="fa">→</div>
+  <div class="fs" id="fs7">8. Orchestrate</div><div class="fa">→</div>
+  <div class="fs" id="fs8">9. Channels</div><div class="fa">→</div>
+  <div class="fs" id="fs9">10. CRM</div><div class="fa">→</div>
+  <div class="fs" id="fs10">11. Next action</div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="go(0)">1. Interaction</button>
+  <button class="tab" onclick="go(1)">2. Engagement tracking</button>
+  <button class="tab" onclick="go(2)">3. Identity resolution</button>
+  <button class="tab" onclick="go(3)">4. Customer 360</button>
+  <button class="tab" onclick="go(4)">5. Personalisation</button>
+  <button class="tab" onclick="go(5)">6. Lead scoring</button>
+  <button class="tab" onclick="go(6)">7. Segmentation</button>
+  <button class="tab" onclick="go(7)">8. Orchestration</button>
+  <button class="tab" onclick="go(8)">9. Channels</button>
+  <button class="tab" onclick="go(9)">10. CRM & analytics</button>
+  <button class="tab" onclick="go(10)">11. Next best action</button>
+</div>
+
+<!-- SCREEN 0: Customer Interaction -->
+<div class="screen active" id="sc0">
+  <div class="stitle">Customer interaction</div>
+  <div class="ssub">Where did the customer come from? Select the entry channel to begin the agent workflow.</div>
+  <div class="label">Entry channel</div>
+  <div class="grid3" id="entry-grid">
+    <div class="card sel" onclick="selEntry(0,this)"><div class="ct">Website visit</div><div class="cs">Direct or organic search</div></div>
+    <div class="card" onclick="selEntry(1,this)"><div class="ct">Paid ad click</div><div class="cs">Meta / Google campaign</div></div>
+    <div class="card" onclick="selEntry(2,this)"><div class="ct">Email link click</div><div class="cs">Existing contact re-engaged</div></div>
+    <div class="card" onclick="selEntry(3,this)"><div class="ct">Social referral</div><div class="cs">LinkedIn / Instagram</div></div>
+    <div class="card" onclick="selEntry(4,this)"><div class="ct">WhatsApp inbound</div><div class="cs">Direct message intent</div></div>
+    <div class="card" onclick="selEntry(5,this)"><div class="ct">Partner referral</div><div class="cs">Affiliate or ecosystem</div></div>
+  </div>
+  <div class="infobox" id="entry-info">Channel detected: <strong>Website visit</strong> → engagement tracking agent activated</div>
+  <button class="next-btn" onclick="go(1)">Next: engagement tracking →</button>
+</div>
+
+<!-- SCREEN 1: Customer Engagement Tracking -->
+<div class="screen" id="sc1">
+  <div class="stitle">Customer engagement tracking</div>
+  <div class="ssub">Agent captures behavioural events on the landing page and signals intent to downstream agents.</div>
+  <div class="label">Captured event</div>
+  <div class="grid2" id="ev-grid">
+    <div class="card sel" onclick="selEv(0,this)"><div class="ct">Book demo click</div><div class="cs">Highest intent signal</div></div>
+    <div class="card" onclick="selEv(1,this)"><div class="ct">Add to cart</div><div class="cs">Purchase intent</div></div>
+    <div class="card" onclick="selEv(2,this)"><div class="ct">Form submit</div><div class="cs">Contact / signup</div></div>
+    <div class="card" onclick="selEv(3,this)"><div class="ct">Video click</div><div class="cs">Content engagement</div></div>
+    <div class="card" onclick="selEv(4,this)"><div class="ct">CTA click</div><div class="cs">Moderate intent</div></div>
+    <div class="card" onclick="selEv(5,this)"><div class="ct">Time on site ≥ 5 min</div><div class="cs">Browsing engagement</div></div>
+  </div>
+  <div class="infobox" id="ev-info">Event captured: <strong>Book demo click</strong> → forwarded to Identity Resolution Agent</div>
+  <div class="btn-row"><button class="back-btn" onclick="go(0)">← Back</button><button class="next-btn" onclick="go(2)">Next: identity resolution →</button></div>
+</div>
+
+<!-- SCREEN 2: Customer Identity Resolution -->
+<div class="screen" id="sc2">
+  <div class="stitle">Customer identity resolution</div>
+  <div class="ssub">Agent attempts to identify the visitor using available signals. Match confidence determines data richness for the 360 profile.</div>
+
+  <div class="label">Identity signals detected</div>
+  <div id="id-methods">
+    <div class="id-method"><div class="id-dot" style="background:#1D9E75;"></div><div><div style="font-size:13px;font-weight:500;color:var(--color-text-primary);">Browser cookie match</div><div style="font-size:12px;color:var(--color-text-secondary);">Returning visitor — session linked to prior visit</div></div><div style="margin-left:auto;"><span class="pill p-teal" id="cookie-status">Matched</span></div></div>
+    <div class="id-method"><div class="id-dot" id="email-dot" style="background:#1D9E75;"></div><div><div style="font-size:13px;font-weight:500;color:var(--color-text-primary);">Email lookup</div><div style="font-size:12px;color:var(--color-text-secondary);">Known contact in CRM database</div></div><div style="margin-left:auto;"><span class="pill p-teal" id="email-status">Matched</span></div></div>
+    <div class="id-method"><div class="id-dot" id="device-dot" style="background:#BA7517;"></div><div><div style="font-size:13px;font-weight:500;color:var(--color-text-primary);">Device fingerprint</div><div style="font-size:12px;color:var(--color-text-secondary);">Cross-device identity signal</div></div><div style="margin-left:auto;"><span class="pill p-amber" id="device-status">Partial</span></div></div>
+    <div class="id-method"><div class="id-dot" id="ip-dot" style="background:#5F5E5A;"></div><div><div style="font-size:13px;font-weight:500;color:var(--color-text-primary);">IP / company lookup</div><div style="font-size:12px;color:var(--color-text-secondary);">Firmographic enrichment</div></div><div style="margin-left:auto;"><span class="pill p-gray" id="ip-status">No match</span></div></div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="label">Resolution confidence</div>
+  <div class="grid3" id="conf-grid">
+    <div class="card" onclick="selConf('low',this)"><div class="ct">Low confidence</div><div class="cs">Anonymous · cookie only</div></div>
+    <div class="card" onclick="selConf('medium',this)"><div class="ct">Medium confidence</div><div class="cs">Cookie + partial email</div></div>
+    <div class="card sel" onclick="selConf('high',this)"><div class="ct">High confidence</div><div class="cs">Cookie + CRM match</div></div>
+  </div>
+  <div class="infobox" id="conf-info">Identity resolved: <strong>High confidence</strong> — full CRM record loaded for Customer 360 profile</div>
+  <div class="btn-row"><button class="back-btn" onclick="go(1)">← Back</button><button class="next-btn" onclick="go(3)">Next: customer 360 profile →</button></div>
+</div>
+
+<!-- SCREEN 3: Customer 360 Profile -->
+<div class="screen" id="sc3">
+  <div class="stitle">Customer 360 profile</div>
+  <div class="ssub">Unified view assembled from CRM, behavioural history, and enrichment data. Feeds all downstream agent decisions.</div>
+
+  <div class="label">Identity & firmographics</div>
+  <div class="profile-row">
+    <div class="profile-kv"><div class="pk">Name</div><div class="pv" id="p360-name">Nova Sharma</div></div>
+    <div class="profile-kv"><div class="pk">Company</div><div class="pv" id="p360-company">GrowthLabs Inc.</div></div>
+    <div class="profile-kv"><div class="pk">Role</div><div class="pv" id="p360-role">Head of Marketing</div></div>
+    <div class="profile-kv"><div class="pk">Industry</div><div class="pv" id="p360-industry">SaaS / B2B</div></div>
+  </div>
+
+  <div class="label">Engagement history</div>
+  <div class="profile-row">
+    <div class="profile-kv"><div class="pk">Total sessions</div><div class="pv" id="p360-sessions">7</div></div>
+    <div class="profile-kv"><div class="pk">Pages viewed</div><div class="pv" id="p360-pages">23</div></div>
+    <div class="profile-kv"><div class="pk">Last seen</div><div class="pv" id="p360-last">2 days ago</div></div>
+    <div class="profile-kv"><div class="pk">First touch</div><div class="pv" id="p360-first">Paid ad · 6 wks ago</div></div>
+  </div>
+
+  <div class="label">Commercial signals</div>
+  <div class="profile-row">
+    <div class="profile-kv"><div class="pk">Lifetime value</div><div class="pv" id="p360-ltv">£0 (prospect)</div></div>
+    <div class="profile-kv"><div class="pk">Open deals</div><div class="pv" id="p360-deals">1 active</div></div>
+    <div class="profile-kv"><div class="pk">Emails received</div><div class="pv" id="p360-emails">4</div></div>
+    <div class="profile-kv"><div class="pk">Emails opened</div><div class="pv" id="p360-opened">3 (75%)</div></div>
+  </div>
+
+  <div class="label">AI-inferred attributes</div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1.25rem;" id="p360-tags">
+    <span class="pill p-teal" id="p360-intent">High intent</span>
+    <span class="pill p-blue" id="p360-persona">Decision maker</span>
+    <span class="pill p-purple" id="p360-buying">Buying committee: 2</span>
+    <span class="pill p-amber" id="p360-stage">Evaluation stage</span>
+    <span class="pill p-green" id="p360-channel">Prefers email</span>
+  </div>
+
+  <div class="infobox" id="p360-info">360 profile complete — passed to Personalisation Agent for real-time experience update</div>
+  <div class="btn-row"><button class="back-btn" onclick="go(2)">← Back</button><button class="next-btn" onclick="go(4)">Next: personalisation →</button></div>
+</div>
+
+<!-- SCREEN 4: Personalisation Agent -->
+<div class="screen" id="sc4">
+  <div class="stitle">Personalisation agent</div>
+  <div class="ssub">AI modifies landing page content dynamically — no waiting for email. Reacts instantly to user behaviour signals.</div>
+
+  <div class="label">Detected behaviour signal</div>
+  <div class="grid2" id="signal-grid">
+    <div class="card sel" onclick="selSignal(0,this)"><div class="ct">⏱ Time on pricing page &gt; 3 min</div><div class="cs">High purchase curiosity detected</div></div>
+    <div class="card" onclick="selSignal(1,this)"><div class="ct">🚪 Exit intent detected</div><div class="cs">Cursor moving toward close</div></div>
+    <div class="card" onclick="selSignal(2,this)"><div class="ct">🔁 Repeat visit</div><div class="cs">2nd+ session on same week</div></div>
+    <div class="card" onclick="selSignal(3,this)"><div class="ct">🖱 CTA hover — no click</div><div class="cs">Hesitation at conversion point</div></div>
+  </div>
+
+  <div class="label">Actions taken by personalisation agent</div>
+  <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:1.25rem;" id="persona-actions">
+    <div class="successbox" style="margin-bottom:0;">
+      <div style="font-size:12px;font-weight:600;color:#085041;margin-bottom:6px;">PERSONALISATION AGENT — LIVE UPDATE</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;" id="persona-grid">
+        <div style="background:white;border-radius:6px;padding:10px;">
+          <div style="font-size:11px;font-weight:500;color:#5F5E5A;margin-bottom:4px;">CTA — BEFORE</div>
+          <div style="font-size:13px;color:#333;" id="cta-before">Learn More</div>
+        </div>
+        <div style="background:#1D9E75;border-radius:6px;padding:10px;">
+          <div style="font-size:11px;font-weight:500;color:#b2f0da;margin-bottom:4px;">CTA — AFTER ✦</div>
+          <div style="font-size:13px;font-weight:600;color:white;" id="cta-after">Book Free Consultation Now</div>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="cursor:default;" id="persona-banner-card">
+      <div class="ct" id="persona-banner-label">Offer banner injected</div>
+      <div class="cs" id="persona-banner-text">Limited demo slots available today — only 3 left this week</div>
+    </div>
+    <div class="card" style="cursor:default;" id="persona-chat-card">
+      <div class="ct" id="persona-chat-label">Chatbot popup triggered</div>
+      <div class="cs" id="persona-chat-text">💬 "Need help choosing the right plan? Let me show you a quick comparison."</div>
+    </div>
+    <div class="card" style="cursor:default;" id="persona-hero-card">
+      <div class="ct">Personalised hero text updated</div>
+      <div class="cs" id="persona-hero-text">Hi Nova — see how our AI solution helps startups like yours close deals faster.</div>
+    </div>
+  </div>
+
+  <div class="infobox">Personalisation agent signalled lead scoring agent: intent upgraded based on pricing page engagement.</div>
+  <div class="btn-row"><button class="back-btn" onclick="go(3)">← Back</button><button class="next-btn" onclick="go(5)">Next: lead scoring →</button></div>
+</div>
+
+<!-- SCREEN 5: Lead Scoring Engine -->
+<div class="screen" id="sc5">
+  <div class="stitle">Lead scoring engine</div>
+  <div class="ssub">Agent assigns intent score 1, 2, or 3 based on event + behaviour pattern.</div>
+  <div class="grid3" id="score-grid">
+    <div class="card" onclick="selScore(1,this)"><div class="ct">Score 1 — low</div><div class="cs">Browsing, no action</div></div>
+    <div class="card" onclick="selScore(2,this)"><div class="ct">Score 2 — medium</div><div class="cs">Engaged, mild intent</div></div>
+    <div class="card sel" onclick="selScore(3,this)"><div class="ct">Score 3 — high</div><div class="cs">Strong purchase signal</div></div>
+  </div>
+  <div class="infobox" id="score-info">Lead score: <strong>3 (high)</strong> — auto-assigned from event type</div>
+  <div class="btn-row"><button class="back-btn" onclick="go(4)">← Back</button><button class="next-btn" onclick="go(6)">Next: segmentation →</button></div>
+</div>
+
+<!-- SCREEN 6: Intelligent Segmentation -->
+<div class="screen" id="sc6">
+  <div class="stitle">Intelligent customer segmentation</div>
+  <div class="ssub">Three segmentation layers combine to form the overall customer tier — controlling budget, channels, and approval mode.</div>
+
+  <div class="label">Value tier</div>
+  <div class="grid4" id="seg-grid">
+    <div class="seg-card" onclick="selSeg('bronze',this)"><div class="ct">Bronze</div><div class="cs">Score 1 · awareness</div></div>
+    <div class="seg-card" onclick="selSeg('silver',this)"><div class="ct">Silver</div><div class="cs">Score 1–2 · nurture</div></div>
+    <div class="seg-card" onclick="selSeg('gold',this)"><div class="ct">Gold</div><div class="cs">Score 2–3 · convert</div></div>
+    <div class="seg-card sel-platinum" onclick="selSeg('platinum',this)"><div class="ct">Platinum</div><div class="cs">Score 3 · high value</div></div>
+  </div>
+
+  <div class="label">Lifecycle stage</div>
+  <div class="grid5" id="lc-grid">
+    <div class="lc-card" onclick="selLC('new',this)"><div class="ct">New</div><div class="cs">First interaction</div></div>
+    <div class="lc-card sel-active" onclick="selLC('active',this)"><div class="ct">Active</div><div class="cs">Recurring engagement</div></div>
+    <div class="lc-card" onclick="selLC('vip',this)"><div class="ct">VIP</div><div class="cs">High LTV customer</div></div>
+    <div class="lc-card" onclick="selLC('atrisk',this)"><div class="ct">At-risk</div><div class="cs">Declining activity</div></div>
+    <div class="lc-card" onclick="selLC('dormant',this)"><div class="ct">Dormant</div><div class="cs">No activity 90+ days</div></div>
+  </div>
+
+  <div class="label">Predictive segmentation</div>
+  <div class="grid3" id="pred-grid">
+    <div class="card" onclick="selPred('low',this)"><div class="ct">Low propensity</div><div class="cs">&lt; 20% convert probability</div></div>
+    <div class="card" onclick="selPred('medium',this)"><div class="ct">Medium propensity</div><div class="cs">20–60% convert probability</div></div>
+    <div class="card sel" onclick="selPred('high',this)"><div class="ct">High propensity</div><div class="cs">&gt; 60% convert probability</div></div>
+  </div>
+
+  <div class="label">Overall customer tier — combined output</div>
+  <div class="infobox" id="seg-info">Segment: <strong>Platinum</strong> · Lifecycle: <strong>Active</strong> · Predictive: <strong>High propensity</strong> — auto mode, all premium channels unlocked</div>
+
+  <div class="label">Channels unlocked for this segment</div>
+  <div class="channel-row" id="ch-row">
+    <div class="ch on">Email</div><div class="ch on">SMS</div><div class="ch on">WhatsApp</div><div class="ch on">LinkedIn</div><div class="ch on">Website personalisation</div><div class="ch on">Meta / Google Ads</div>
+  </div>
+  <div class="label">Cost control mode</div>
+  <div class="toggle-row" id="mode-toggle">
+    <button class="toggle-btn active-auto" onclick="selMode('auto',this)">Automatic — AI sends directly</button>
+    <button class="toggle-btn" onclick="selMode('manual',this)">Manual — human approves first</button>
+  </div>
+  <div id="mode-box" class="successbox">Automatic mode: AI agent generates + sends without waiting for approval. Used for Gold / Platinum to maximise speed.</div>
+  <div class="btn-row"><button class="back-btn" onclick="go(5)">← Back</button><button class="next-btn" onclick="go(7)">Next: campaign orchestration →</button></div>
+</div>
+
+<!-- SCREEN 7: Campaign Orchestration Hub -->
+<div class="screen" id="sc7">
+  <div class="stitle">Campaign orchestration hub</div>
+  <div class="ssub">Orchestration agent decides timing, budget, channel priority, and delivery mode based on segment + lifecycle + predictive outputs.</div>
+
+  <div class="label">Orchestration agent decision</div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1.25rem;" id="orch-pills">
+    <span class="pill p-teal" id="op-seg">Platinum segment</span>
+    <span class="pill p-blue" id="op-lc">Active lifecycle</span>
+    <span class="pill p-green" id="op-pred">High propensity</span>
+    <span class="pill p-purple" id="op-mode">Auto mode</span>
+    <span class="pill p-amber" id="op-delay">Delay: 1h</span>
+    <span class="pill p-coral" id="op-type">Reminder + offer</span>
+  </div>
+
+  <div class="label">Campaign parameters</div>
+  <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:1.25rem;">
+    <div style="background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:12px;">
+      <div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:4px;">Daily budget cap</div>
+      <div style="font-size:14px;font-weight:500;color:var(--color-text-primary);" id="orch-budget">£120 / day</div>
+    </div>
+    <div style="background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:12px;">
+      <div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:4px;">Send frequency cap</div>
+      <div style="font-size:14px;font-weight:500;color:var(--color-text-primary);">Max 3 touches / 7 days</div>
+    </div>
+    <div style="background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:12px;">
+      <div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:4px;">A/B test variant</div>
+      <div style="font-size:14px;font-weight:500;color:var(--color-text-primary);" id="orch-ab">Variant A — urgency frame</div>
+    </div>
+    <div style="background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:12px;">
+      <div style="font-size:11px;color:var(--color-text-secondary);margin-bottom:4px;">Suppression check</div>
+      <div style="font-size:14px;font-weight:500;color:var(--color-text-primary);">Passed — not in exclusion list</div>
+    </div>
+  </div>
+
+  <div class="successbox" id="orch-decision">Orchestration decision: deploy all premium channels simultaneously · auto send · 1h delay post-event · urgency-framed content variant</div>
+  <div class="btn-row"><button class="back-btn" onclick="go(6)">← Back</button><button class="next-btn" onclick="go(8)">Next: channel & content →</button></div>
+</div>
+
+<!-- SCREEN 8: Channel & Content Intelligence -->
+<div class="screen" id="sc8">
+  <div class="stitle">Channel & content intelligence</div>
+  <div class="ssub">AI generates personalised content per channel. Approval mode set by segment.</div>
+
+  <div id="output-cards">
+    <div class="oc" id="oc-email">
+      <div class="otype">Email agent</div>
+      <div class="osubj" id="os-email">Your demo is ready — confirm your slot now</div>
+      <div class="obody" id="ob-email">Hi <span class="hl">[First Name]</span>,<br><br>You clicked to book a demo — your slot is still available for <span class="hl">48 hours</span>. Our team is ready to give you a personalised walkthrough.<br><br><span class="hl">→ Confirm my demo slot</span></div>
+    </div>
+    <div class="oc" id="oc-sms">
+      <div class="otype">SMS agent</div>
+      <div class="obody" id="ob-sms">Hi <span class="hl">[Name]</span> — your demo slot expires in 48h. Confirm now: <span class="hl">[link]</span></div>
+    </div>
+    <div class="oc" id="oc-whatsapp">
+      <div class="otype">WhatsApp agent</div>
+      <div class="obody" id="ob-whatsapp">👋 Hi <span class="hl">[Name]</span>, just a quick note — your personalised demo is still available. Tap below to confirm your slot. We'll send you a calendar invite instantly. <span class="hl">→ Confirm slot</span></div>
+    </div>
+    <div class="oc" id="oc-linkedin">
+      <div class="otype">LinkedIn agent</div>
+      <div class="obody" id="ob-linkedin">Sponsored message: <span class="hl">[Name]</span>, teams like yours are cutting CAC by 30% with AI-driven outreach. See how in a 20-min demo. <span class="hl">→ Book now</span></div>
+    </div>
+    <div class="oc" id="oc-conv">
+      <div class="otype">Conversion / action agent</div>
+      <div class="obody" id="ob-conv">Expected action: <span class="hl">Demo booking confirmed</span> → lead created in CRM · campaign marked as converted</div>
+    </div>
+  </div>
+
+  <div id="approval-box" style="display:none;" class="warnbox">Manual mode active — content above is queued for human review before sending.</div>
+
+  <div class="btn-row"><button class="back-btn" onclick="go(7)">← Back</button><button class="next-btn" onclick="go(9)">Next: CRM & analytics →</button></div>
+</div>
+
+<!-- SCREEN 9: CRM & Analytics Dashboard -->
+<div class="screen" id="sc9">
+  <div class="stitle">CRM & analytics dashboard</div>
+  <div class="ssub">Analytics agent tracks campaign results. Learning loop updates lead scores, segments, and channel rules automatically.</div>
+
+  <div class="label">Campaign performance</div>
+  <div class="metric-grid">
+    <div class="metric"><div class="mv" id="m-open">68%</div><div class="ml">Email open rate</div></div>
+    <div class="metric"><div class="mv" id="m-ctr">24%</div><div class="ml">CTR</div></div>
+    <div class="metric"><div class="mv" id="m-conv">11%</div><div class="ml">Conversion rate</div></div>
+    <div class="metric"><div class="mv" id="m-roi">4.2x</div><div class="ml">ROI</div></div>
+  </div>
+
+  <div class="label">Channel-level breakdown</div>
+  <div class="metric-grid6">
+    <div class="metric"><div class="mv" id="m-email-open">68%</div><div class="ml">Email open</div></div>
+    <div class="metric"><div class="mv" id="m-sms-resp">41%</div><div class="ml">SMS response</div></div>
+    <div class="metric"><div class="mv" id="m-wa-read">89%</div><div class="ml">WhatsApp read</div></div>
+    <div class="metric"><div class="mv" id="m-li-ctr">5%</div><div class="ml">LinkedIn CTR</div></div>
+    <div class="metric"><div class="mv" id="m-web-lift">+31%</div><div class="ml">Web CTA lift</div></div>
+    <div class="metric"><div class="mv" id="m-ad-roas">3.1x</div><div class="ml">Ad ROAS</div></div>
+  </div>
+
+  <div class="label">Learning / feedback loop — what updates automatically</div>
+  <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:1.25rem;">
+    <div class="card" style="cursor:default;"><div class="ct">Lead scoring agent update</div><div class="cs" id="fb-score">High open rate + conversion → score 3 threshold confirmed. No change needed.</div></div>
+    <div class="card" style="cursor:default;"><div class="ct">Audience segment update</div><div class="cs" id="fb-seg">Platinum segment performance strong → budget allocation maintained.</div></div>
+    <div class="card" style="cursor:default;"><div class="ct">Campaign orchestration update</div><div class="cs" id="fb-camp">Email + SMS combo effective for demo-intent leads → rule reinforced for next cycle.</div></div>
+    <div class="card" style="cursor:default;"><div class="ct">Website personalisation update</div><div class="cs" id="fb-persona">Dynamic CTA on pricing page increased CTR from 24% → 31% — personalisation rule reinforced.</div></div>
+    <div class="card" style="cursor:default;"><div class="ct">WhatsApp channel update</div><div class="cs" id="fb-wa">WhatsApp 89% read rate for Platinum leads → elevated to primary channel for high-intent segment.</div></div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="label">CRM record — live update</div>
+  <div class="infobox" id="crm-record">Lead record updated: score 3 · Platinum · Active lifecycle · demo booked · campaign response logged → available for next campaign cycle</div>
+
+  <div class="label">Cost optimisation summary</div>
+  <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:1.25rem;">
+    <div style="background:#E1F5EE;border-radius:var(--border-radius-md);padding:12px;">
+      <div style="font-size:12px;font-weight:500;color:#085041;margin-bottom:4px;">Automatic mode</div>
+      <div style="font-size:12px;color:#0F6E56;">Gold + Platinum leads · high-intent · AI sends directly · maximise speed + conversion</div>
+    </div>
+    <div style="background:#FAEEDA;border-radius:var(--border-radius-md);padding:12px;">
+      <div style="font-size:12px;font-weight:500;color:#633806;margin-bottom:4px;">Manual mode</div>
+      <div style="font-size:12px;color:#854F0B;">Bronze + Silver leads · awareness campaigns · human approves · controls token spend</div>
+    </div>
+  </div>
+
+  <div class="btn-row"><button class="back-btn" onclick="go(8)">← Back</button><button class="next-btn" onclick="go(10)">Next: recommended next best action →</button></div>
+</div>
+
+<!-- SCREEN 10: Recommended Next Best Action -->
+<div class="screen" id="sc10">
+  <div class="stitle">Recommended next best action</div>
+  <div class="ssub">AI agent evaluates campaign results, CRM signals, and lifecycle stage to recommend the highest-value follow-up action for this customer.</div>
+
+  <div class="label">Customer context summary</div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1.25rem;" id="nba-context">
+    <span class="pill p-teal" id="nba-seg-pill">Platinum</span>
+    <span class="pill p-teal" id="nba-lc-pill">Active lifecycle</span>
+    <span class="pill p-green" id="nba-pred-pill">High propensity</span>
+    <span class="pill p-blue" id="nba-score-pill">Score 3</span>
+    <span class="pill p-amber" id="nba-ev-pill">Demo clicked</span>
+  </div>
+
+  <div class="label">AI-recommended actions — ranked by expected value</div>
+  <div id="nba-list">
+    <div class="nba-card">
+      <div class="nba-icon" style="background:#E1F5EE;">🎯</div>
+      <div>
+        <div class="nba-pri" id="nba-1-title">Confirm demo booking — immediate outreach</div>
+        <div class="nba-sec" id="nba-1-sub">Send personalised confirmation sequence via Email + WhatsApp within 1h. Priority action for high-propensity Platinum leads.</div>
+      </div>
+      <div style="margin-left:auto;flex-shrink:0;"><span class="pill p-teal">Priority 1</span></div>
+    </div>
+    <div class="nba-card">
+      <div class="nba-icon" style="background:#E6F1FB;">🤝</div>
+      <div>
+        <div class="nba-pri" id="nba-2-title">Assign to sales rep — direct follow-up call</div>
+        <div class="nba-sec" id="nba-2-sub">Score 3 + demo intent → route to SDR within 24h for personalised discovery call. Include 360 profile context.</div>
+      </div>
+      <div style="margin-left:auto;flex-shrink:0;"><span class="pill p-blue">Priority 2</span></div>
+    </div>
+    <div class="nba-card">
+      <div class="nba-icon" style="background:#EEEDFE;">📋</div>
+      <div>
+        <div class="nba-pri" id="nba-3-title">Send case study — relevant industry proof</div>
+        <div class="nba-sec" id="nba-3-sub">Based on SaaS industry tag + evaluation stage — share a peer case study via LinkedIn + email 48h post-demo to reinforce intent.</div>
+      </div>
+      <div style="margin-left:auto;flex-shrink:0;"><span class="pill p-purple">Priority 3</span></div>
+    </div>
+    <div class="nba-card">
+      <div class="nba-icon" style="background:#FAEEDA;">🔁</div>
+      <div>
+        <div class="nba-pri" id="nba-4-title">Enrol in nurture sequence B — if no demo response</div>
+        <div class="nba-sec" id="nba-4-sub">If demo not confirmed within 72h, auto-enrol in 5-touch nurture via email + retargeting ads. Re-evaluate score after sequence.</div>
+      </div>
+      <div style="margin-left:auto;flex-shrink:0;"><span class="pill p-amber">Fallback</span></div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="label">Agent decision log</div>
+  <div class="successbox" id="nba-log">Next best action confirmed: <strong>Demo confirmation sequence</strong> · deployed via Email + WhatsApp · SDR notified · CRM opportunity stage updated to "Demo Scheduled" · feedback loop armed for post-demo signals</div>
+
+  <div class="btn-row"><button class="back-btn" onclick="go(9)">← Back</button><button class="next-btn" onclick="restart()">↺ Simulate another customer</button></div>
+</div>
+</div>
+
+<script>
+const evData=[
+  {label:'Book demo click',score:3,seg:'platinum',lc:'active',pred:'high',channels:['Email','SMS','WhatsApp','LinkedIn','Website personalisation','Meta / Google Ads'],mode:'auto',delay:'1h',type:'Reminder + offer',budget:'£120 / day',ab:'Variant A — urgency frame',
+   emails:{subj:'Your demo is ready — confirm your slot now',body:'Hi <span class="hl">[First Name]</span>,<br><br>You clicked to book a demo — your slot is still available for <span class="hl">48 hours</span>. Our team is ready to give you a personalised walkthrough.<br><br><span class="hl">→ Confirm my demo slot</span>'},
+   sms:'Hi <span class="hl">[Name]</span> — your demo slot expires in 48h. Confirm now: <span class="hl">[link]</span>',
+   whatsapp:'👋 Hi <span class="hl">[Name]</span>, your personalised demo is still available. Tap to confirm your slot and we\'ll send a calendar invite instantly. <span class="hl">→ Confirm slot</span>',
+   linkedin:'Sponsored: <span class="hl">[Name]</span>, teams like yours cut CAC by 30% with AI-driven outreach. See how in a 20-min demo. <span class="hl">→ Book now</span>',
+   conv:'Demo booking confirmed',
+   metrics:{open:'68%',ctr:'24%',conv:'11%',roi:'4.2x',emailOpen:'68%',smsResp:'41%',waRead:'89%',liCtr:'5%',webLift:'+31%',adRoas:'3.1x'},
+   fb:{score:'High open rate + conversion → score 3 threshold confirmed.',seg:'Platinum performance strong → budget allocation maintained.',camp:'Email + WhatsApp combo highly effective for demo-intent leads → rule reinforced.',persona:'Dynamic CTA on pricing page increased CTR from 24% → 31% — personalisation rule reinforced.',wa:'WhatsApp 89% read rate for Platinum leads → elevated to primary channel for high-intent segment.'},
+   crm:'Lead record updated: score 3 · Platinum · Active lifecycle · demo booked · campaign response logged → available for next campaign cycle',
+   nba:{seg:'Platinum',lc:'Active lifecycle',pred:'High propensity',score:'Score 3',ev:'Demo clicked',
+     a1:'Confirm demo booking — immediate outreach',a1s:'Send personalised confirmation sequence via Email + WhatsApp within 1h. Priority action for high-propensity Platinum leads.',
+     a2:'Assign to sales rep — direct follow-up call',a2s:'Score 3 + demo intent → route to SDR within 24h for personalised discovery call. Include 360 profile context.',
+     a3:'Send case study — relevant industry proof',a3s:'Based on SaaS industry tag + evaluation stage — share a peer case study via LinkedIn + email 48h post-demo to reinforce intent.',
+     a4:'Enrol in nurture sequence B — if no demo response',a4s:'If demo not confirmed within 72h, auto-enrol in 5-touch nurture via email + retargeting ads. Re-evaluate score after sequence.',
+     log:'Next best action confirmed: <strong>Demo confirmation sequence</strong> · deployed via Email + WhatsApp · SDR notified · CRM opportunity stage updated to "Demo Scheduled" · feedback loop armed for post-demo signals'}},
+  {label:'Add to cart',score:2,seg:'gold',lc:'active',pred:'high',channels:['Email','SMS','WhatsApp','Meta / Google Ads'],mode:'auto',delay:'24h',type:'Nurture + cart recovery',budget:'£80 / day',ab:'Variant B — social proof frame',
+   emails:{subj:'You left something in your cart — complete your order',body:'Hi <span class="hl">[First Name]</span>,<br><br>Your cart is saved and ready. Don\'t miss out — complete your purchase and get access today.<br><br><span class="hl">→ Return to my cart</span>'},
+   sms:'Hi <span class="hl">[Name]</span> — your cart is waiting. Complete your order: <span class="hl">[link]</span>',
+   whatsapp:'🛒 Hi <span class="hl">[Name]</span>, your cart is still saved! Complete your order now and get started today. <span class="hl">→ Complete purchase</span>',
+   linkedin:'Sponsored: Still thinking it over? Join 5,000+ teams already using our platform. <span class="hl">→ Complete your order</span>',
+   conv:'Purchase completed',
+   metrics:{open:'52%',ctr:'18%',conv:'7%',roi:'2.8x',emailOpen:'52%',smsResp:'33%',waRead:'81%',liCtr:'3%',webLift:'+18%',adRoas:'2.4x'},
+   fb:{score:'Cart abandonment + purchase → score 2–3 boundary re-evaluated.',seg:'Gold segment cart recovery performing well → budget held.',camp:'24h delay optimal for cart recovery → rule confirmed.',persona:'Exit-intent personalisation reduced abandonment rate by 18% — banner rule reinforced.',wa:'WhatsApp cart recovery message at 81% read rate → maintained in Gold sequence.'},
+   crm:'Lead record updated: score 2 · Gold · Active lifecycle · cart recovery triggered · purchase pending',
+   nba:{seg:'Gold',lc:'Active lifecycle',pred:'High propensity',score:'Score 2',ev:'Add to cart',
+     a1:'Send cart recovery sequence — urgency trigger',a1s:'Deploy Email + WhatsApp cart recovery within 24h. Include social proof and limited-time incentive for Gold segment.',
+     a2:'Retarget via Meta / Google Ads',a2s:'Activate dynamic retargeting with product-level ads. Bid uplift for score 2+ leads. Cap at 3 impressions per day.',
+     a3:'Offer a discount or extended trial',a3s:'If no purchase after 48h, trigger a 10% discount or 14-day trial offer via email. Personalise with cart item reference.',
+     a4:'Downgrade to nurture sequence — if no response in 7 days',a4s:'If cart not recovered in 7 days, move to Silver nurture track and re-score on next visit.',
+     log:'Next best action confirmed: <strong>Cart recovery sequence</strong> · Email + WhatsApp deployed · retargeting ads activated · discount fallback armed at 48h'}},
+  {label:'Form submit',score:3,seg:'platinum',lc:'new',pred:'high',channels:['Email','LinkedIn','Website personalisation'],mode:'auto',delay:'0h',type:'Welcome + onboarding',budget:'£100 / day',ab:'Variant A — welcome frame',
+   emails:{subj:'Welcome — here\'s how to get started',body:'Hi <span class="hl">[First Name]</span>,<br><br>Thanks for reaching out. A member of our team will contact you within 24 hours. In the meantime, here\'s everything you need to get started.<br><br><span class="hl">→ Explore the product</span>'},
+   sms:null,
+   whatsapp:'👋 Welcome! Your enquiry is confirmed. A team member will reach out within 24h. In the meantime: <span class="hl">→ Explore the product</span>',
+   linkedin:'Connection request + message: Hi <span class="hl">[Name]</span>, great to connect — I\'ll be in touch shortly about your enquiry.',
+   conv:'Lead created in CRM',
+   metrics:{open:'71%',ctr:'29%',conv:'15%',roi:'5.1x',emailOpen:'71%',smsResp:'—',waRead:'92%',liCtr:'6%',webLift:'+9%',adRoas:'—'},
+   fb:{score:'Form submit confirmed as score 3 signal → no change.',seg:'Platinum threshold validated for form submits.',camp:'Immediate send (0h delay) optimal for form responses → rule confirmed.',persona:'Welcome hero text personalisation lifted onboarding completion by 9%.',wa:'WhatsApp welcome message 92% read rate → set as default for new Platinum leads.'},
+   crm:'Lead record created: score 3 · Platinum · New lifecycle · form submitted · onboarding sequence initiated',
+   nba:{seg:'Platinum',lc:'New lifecycle',pred:'High propensity',score:'Score 3',ev:'Form submit',
+     a1:'Send immediate welcome sequence',a1s:'Deploy welcome email + WhatsApp confirmation within minutes of form submit. Route to onboarding track.',
+     a2:'Assign dedicated account manager',a2s:'New Platinum leads with score 3 get a named account manager assigned within 2h of form submission.',
+     a3:'Schedule onboarding call — within 24h',a3s:'Send calendar link for onboarding call via email + WhatsApp. Pre-fill with company and role data from 360 profile.',
+     a4:'Monitor for product engagement signals',a4s:'Track product page views and video plays over next 72h. Upgrade to evaluation-stage nurture if engaged.',
+     log:'Next best action confirmed: <strong>Welcome + onboarding sequence</strong> · immediate send · account manager assigned · onboarding call invite sent'}},
+  {label:'Video click',score:1,seg:'silver',lc:'new',pred:'low',channels:['Email'],mode:'manual',delay:'48h',type:'Educational',budget:'£20 / day',ab:'Variant B — educational frame',
+   emails:{subj:'Thought you\'d enjoy this — more on [topic]',body:'Hi <span class="hl">[First Name]</span>,<br><br>We noticed you watched our video on [topic]. Here\'s a deeper guide we think you\'ll find valuable.<br><br><span class="hl">→ Read the full guide</span>'},
+   sms:null,whatsapp:null,linkedin:null,
+   conv:'Content engagement tracked',
+   metrics:{open:'38%',ctr:'9%',conv:'2%',roi:'1.1x',emailOpen:'38%',smsResp:'—',waRead:'—',liCtr:'—',webLift:'+12%',adRoas:'—'},
+   fb:{score:'Video click → score 1 signal. Low conversion suggests score threshold correct.',seg:'Silver segment — manual mode cost-effective for low-intent.',camp:'Educational content performs moderately → A/B test recommended.',persona:'Repeat-visit personalisation nudged 12% of video viewers back to pricing page.',wa:'WhatsApp not unlocked for Silver segment — email only.'},
+   crm:'Lead record created: score 1 · Silver · New lifecycle · video engaged · educational nurture active',
+   nba:{seg:'Silver',lc:'New lifecycle',pred:'Low propensity',score:'Score 1',ev:'Video click',
+     a1:'Continue educational content nurture',a1s:'Send 3-part educational email series at 48h intervals. Content aligned to video topic for relevance.',
+     a2:'Re-score after second content interaction',a2s:'Monitor for second video view or article click. If detected, upgrade to score 2 and move to Gold track.',
+     a3:'Retarget with awareness ads',a3s:'Low-budget retargeting campaign via Meta. Show educational content ads to reinforce brand recall. Cap at £20/day.',
+     a4:'No direct outreach at this stage',a4s:'Score 1 leads are not routed to sales. Maintain in automated nurture sequence until score upgrade.',
+     log:'Next best action confirmed: <strong>Educational nurture sequence</strong> · email only · manual approval mode · re-scoring armed on next interaction'}},
+  {label:'CTA click',score:2,seg:'gold',lc:'active',pred:'medium',channels:['Email','Meta / Google Ads'],mode:'auto',delay:'12h',type:'Offer + conversion',budget:'£60 / day',ab:'Variant A — offer frame',
+   emails:{subj:'Ready to take the next step?',body:'Hi <span class="hl">[First Name]</span>,<br><br>You showed interest — now\'s the time to move forward. We\'ve put together a special offer just for you.<br><br><span class="hl">→ See my offer</span>'},
+   sms:null,
+   whatsapp:'Hi <span class="hl">[Name]</span> — we noticed your interest. Here\'s a special offer ready for you: <span class="hl">→ See offer</span>',
+   linkedin:'Sponsored: Your peers in [industry] are already seeing results. Don\'t miss your offer. <span class="hl">→ Claim now</span>',
+   conv:'Lead qualified',
+   metrics:{open:'47%',ctr:'15%',conv:'6%',roi:'2.3x',emailOpen:'47%',smsResp:'—',waRead:'74%',liCtr:'4%',webLift:'+14%',adRoas:'2.1x'},
+   fb:{score:'CTA click → score 2 confirmed. Conversion rate suggests some qualify for score 3.',seg:'Gold segment performing as expected.',camp:'12h delay effective for CTA follow-up → rule maintained.',persona:'CTA hover hesitation banner reduced drop-off by 14% — rule reinforced.',wa:'WhatsApp offer message 74% read rate → added to Gold CTA recovery flow.'},
+   crm:'Lead record updated: score 2 · Gold · Active lifecycle · CTA engaged · offer sequence deployed',
+   nba:{seg:'Gold',lc:'Active lifecycle',pred:'Medium propensity',score:'Score 2',ev:'CTA click',
+     a1:'Send personalised offer — 12h post-click',a1s:'Deploy email + WhatsApp offer sequence at 12h delay. Personalise with name and company from 360 profile.',
+     a2:'Activate retargeting campaign',a2s:'Retarget via Meta / Google Ads with offer-based creative. Uplift bid for score 2+ leads.',
+     a3:'Monitor for upgrade to score 3',a3s:'If lead clicks offer link, upgrade to score 3 and route to Platinum track for full-channel deployment.',
+     a4:'Set 7-day re-engagement trigger',a4s:'If no response after 7 days, trigger a re-engagement email with a different value proposition.',
+     log:'Next best action confirmed: <strong>Offer + conversion sequence</strong> · Email + retargeting deployed · score upgrade trigger armed · 7-day fallback set'}},
+  {label:'Time on site ≥ 5 min',score:1,seg:'bronze',lc:'new',pred:'low',channels:['Email'],mode:'manual',delay:'72h',type:'Awareness + nurture',budget:'£10 / day',ab:'Variant B — awareness frame',
+   emails:{subj:'Here\'s what makes [Product] different',body:'Hi <span class="hl">[First Name]</span>,<br><br>You spent time on our site recently — thanks for your interest. Here\'s a quick overview of what makes us different from the rest.<br><br><span class="hl">→ Learn more</span>'},
+   sms:null,whatsapp:null,linkedin:null,
+   conv:'Awareness tracked',
+   metrics:{open:'29%',ctr:'6%',conv:'1%',roi:'0.8x',emailOpen:'29%',smsResp:'—',waRead:'—',liCtr:'—',webLift:'+7%',adRoas:'—'},
+   fb:{score:'Long browse without action → score 1. May upgrade to score 2 with second visit.',seg:'Bronze segment → manual mode keeps token cost low for low-intent.',camp:'Long delay (72h) appropriate for cold leads → rule confirmed.',persona:'Chatbot popup on long-browse sessions captured 7% more form submissions.',wa:'WhatsApp not unlocked for Bronze segment.'},
+   crm:'Lead record created: score 1 · Bronze · New lifecycle · browse signal only · awareness nurture active',
+   nba:{seg:'Bronze',lc:'New lifecycle',pred:'Low propensity',score:'Score 1',ev:'Long browse',
+     a1:'Send a single awareness email — 72h delay',a1s:'One carefully crafted awareness email. Manual approval required. No frequency pressure — goal is brand recall.',
+     a2:'Trigger chatbot on next visit',a2s:'If lead returns, activate personalised chatbot popup to capture form submission. Treat as score upgrade trigger.',
+     a3:'Low-budget retargeting only',a3s:'Bronze budget cap: £10/day. Show brand awareness ads only — no conversion offers at this stage.',
+     a4:'Re-evaluate on second visit',a4s:'If second session detected within 14 days, upgrade to Silver and shift to nurture track.',
+     log:'Next best action confirmed: <strong>Awareness email</strong> · single touch · manual approval · re-evaluation armed on return visit'}}
+];
+
+let cur={ev:0,score:3,seg:'platinum',lc:'active',pred:'high',mode:'auto'};
+
+const entryLabels=['Website visit','Paid ad click','Email link click','Social referral','WhatsApp inbound','Partner referral'];
+function selEntry(i,el){
+  document.querySelectorAll('#entry-grid .card').forEach(c=>c.classList.remove('sel'));
+  el.classList.add('sel');
+  document.getElementById('entry-info').innerHTML='Channel detected: <strong>'+entryLabels[i]+'</strong> → engagement tracking agent activated';
+}
+
+function selEv(i,el){
+  cur.ev=i;
+  document.querySelectorAll('#ev-grid .card').forEach(c=>c.classList.remove('sel'));
+  el.classList.add('sel');
+  const d=evData[i];
+  document.getElementById('ev-info').innerHTML='Event captured: <strong>'+d.label+'</strong> → forwarded to Identity Resolution Agent';
+  cur.score=d.score; cur.seg=d.seg; cur.lc=d.lc; cur.pred=d.pred; cur.mode=d.mode;
+}
+
+function selConf(c,el){
+  document.querySelectorAll('#conf-grid .card').forEach(x=>x.classList.remove('sel'));
+  el.classList.add('sel');
+  const msgs={low:'Identity resolved: <strong>Low confidence</strong> — anonymous profile only, limited personalisation',medium:'Identity resolved: <strong>Medium confidence</strong> — partial match, basic profile loaded',high:'Identity resolved: <strong>High confidence</strong> — full CRM record loaded for Customer 360 profile'};
+  document.getElementById('conf-info').innerHTML=msgs[c];
+}
+
+function selScore(s,el){
+  cur.score=s;
+  document.querySelectorAll('#score-grid .card').forEach(c=>c.classList.remove('sel'));
+  el.classList.add('sel');
+  const lbl={1:'1 (low)',2:'2 (medium)',3:'3 (high)'};
+  document.getElementById('score-info').innerHTML='Lead score: <strong>'+lbl[s]+'</strong> — auto-assigned from event type';
+}
+
+function selSeg(s,el){
+  cur.seg=s;
+  document.querySelectorAll('#seg-grid .seg-card').forEach(c=>{c.className='seg-card';});
+  el.className='seg-card sel-'+s;
+  updateSegInfo();
+  const d=evData[cur.ev];
+  updateChannels(d.channels);
+  const m=(['bronze','silver'].includes(s))?'manual':'auto';
+  cur.mode=m;
+  updateModeUI(m);
+}
+
+function selLC(s,el){
+  cur.lc=s;
+  document.querySelectorAll('#lc-grid .lc-card').forEach(c=>{c.className='lc-card';});
+  el.className='lc-card sel-'+s;
+  updateSegInfo();
+}
+
+function selPred(s,el){
+  cur.pred=s;
+  document.querySelectorAll('#pred-grid .card').forEach(c=>c.classList.remove('sel'));
+  el.classList.add('sel');
+  updateSegInfo();
+}
+
+function updateSegInfo(){
+  const segLabel={bronze:'Bronze',silver:'Silver',gold:'Gold',platinum:'Platinum'};
+  const lcLabel={new:'New',active:'Active',vip:'VIP',atrisk:'At-risk',dormant:'Dormant'};
+  const predLabel={low:'Low propensity',medium:'Medium propensity',high:'High propensity'};
+  const modeNote=(['bronze','silver'].includes(cur.seg))?'manual mode, limited channels':'auto mode, all premium channels unlocked';
+  document.getElementById('seg-info').innerHTML='Segment: <strong>'+segLabel[cur.seg]+'</strong> · Lifecycle: <strong>'+lcLabel[cur.lc]+'</strong> · Predictive: <strong>'+predLabel[cur.pred]+'</strong> — '+modeNote;
+}
+
+function updateChannels(chs){
+  const all=['Email','SMS','WhatsApp','LinkedIn','Website personalisation','Meta / Google Ads'];
+  document.getElementById('ch-row').innerHTML=all.map(c=>'<div class="ch'+(chs.includes(c)?' on':'')+'">' +c+'</div>').join('');
+}
+
+function selMode(m,el){
+  cur.mode=m;
+  updateModeUI(m);
+}
+
+function updateModeUI(m){
+  document.querySelectorAll('.toggle-btn').forEach(b=>b.className='toggle-btn');
+  const btns=document.querySelectorAll('.toggle-btn');
+  if(m==='auto'){btns[0].className='toggle-btn active-auto';}else{btns[1].className='toggle-btn active-manual';}
+  const box=document.getElementById('mode-box');
+  if(m==='auto'){box.className='successbox';box.textContent='Automatic mode: AI agent generates + sends without waiting for approval. Used for Gold / Platinum to maximise speed.';}
+  else{box.className='warnbox';box.textContent='Manual mode: content is queued for human review before sending. Used for Bronze / Silver to control token cost.';}
+}
+
+let curSignal=0;
+const personaData=[
+  {signal:'Time on pricing page > 3 min',ctaBefore:'Learn More',ctaAfter:'Book Free Consultation Now',banner:'Limited demo slots available today — only 3 left this week',chat:'💬 "Spending time on pricing? Let me help you pick the right plan."',hero:'Hi Nova — see how our AI solution helps startups like yours close deals faster.'},
+  {signal:'Exit intent detected',ctaBefore:'Get Started',ctaAfter:'Wait — Grab Your Free Demo Before You Go',banner:'🎁 Special offer: free 30-min strategy call for first-time visitors',chat:'💬 "Before you leave — can I answer any quick questions?"',hero:'Don\'t miss out — thousands of teams already growing with us.'},
+  {signal:'Repeat visit',ctaBefore:'Learn More',ctaAfter:'Welcome Back — Ready to Move Forward?',banner:'👋 You\'re back! Your saved demo slot is still available.',chat:'💬 "Great to see you again! Want a personalised walkthrough today?"',hero:'Hi again — here\'s what\'s new since your last visit.'},
+  {signal:'CTA hover — no click',ctaBefore:'Start Free Trial',ctaAfter:'Try It Free — No Credit Card Needed',banner:'✅ Risk-free: cancel anytime, no contracts',chat:'💬 "Not sure yet? I can show you a 2-min product tour right now."',hero:'Join 5,000+ teams who started with zero commitment.'}
+];
+
+function selSignal(i,el){
+  curSignal=i;
+  document.querySelectorAll('#signal-grid .card').forEach(c=>c.classList.remove('sel'));
+  el.classList.add('sel');
+  updatePersonaScreen();
+}
+
+function updatePersonaScreen(){
+  const p=personaData[curSignal];
+  document.getElementById('cta-before').textContent=p.ctaBefore;
+  document.getElementById('cta-after').textContent=p.ctaAfter;
+  document.getElementById('persona-banner-text').textContent=p.banner;
+  document.getElementById('persona-chat-text').textContent=p.chat;
+  document.getElementById('persona-hero-text').textContent=p.hero;
+}
+
+function go(n){
+  const d=evData[cur.ev];
+
+  if(n===3){
+    // Customer 360 — update profile data based on event
+    const profiles=[
+      {name:'Nova Sharma',company:'GrowthLabs Inc.',role:'Head of Marketing',industry:'SaaS / B2B',sessions:'7',pages:'23',last:'2 days ago',first:'Paid ad · 6 wks ago',ltv:'£0 (prospect)',deals:'1 active',emails:'4',opened:'3 (75%)',intent:'High intent',persona:'Decision maker',buying:'Buying committee: 2',stage:'Evaluation stage',channel:'Prefers email'},
+      {name:'Marcus Webb',company:'Retail Co.',role:'E-commerce Manager',industry:'Retail / DTC',sessions:'3',pages:'11',last:'1 day ago',first:'Google ad · 2 wks ago',ltv:'£0 (prospect)',deals:'0',emails:'2',opened:'2 (100%)',intent:'Medium intent',persona:'Evaluator',buying:'Solo decision',stage:'Consideration stage',channel:'Prefers SMS'},
+      {name:'Priya Anand',company:'TechStart Ltd.',role:'Founder / CEO',industry:'B2B SaaS',sessions:'9',pages:'31',last:'Same day',first:'Referral · 8 wks ago',ltv:'£0 (prospect)',deals:'1 active',emails:'6',opened:'5 (83%)',intent:'High intent',persona:'Economic buyer',buying:'Buying committee: 3',stage:'Decision stage',channel:'Prefers WhatsApp'},
+      {name:'Jamie Liu',company:'MediaGroup',role:'Content Manager',industry:'Media / Publishing',sessions:'2',pages:'6',last:'5 days ago',first:'Organic · 3 wks ago',ltv:'£0 (prospect)',deals:'0',emails:'1',opened:'0 (0%)',intent:'Low intent',persona:'Researcher',buying:'Solo',stage:'Awareness stage',channel:'Prefers email'},
+      {name:'Sam Torres',company:'ScaleUp Agency',role:'Growth Lead',industry:'Marketing Agency',sessions:'4',pages:'15',last:'3 days ago',first:'LinkedIn · 4 wks ago',ltv:'£800',deals:'1 renewal',emails:'5',opened:'3 (60%)',intent:'Medium intent',persona:'Champion',buying:'Buying committee: 2',stage:'Renewal evaluation',channel:'Prefers LinkedIn'},
+      {name:'Alex Kim',company:'Unknown',role:'Unknown',industry:'Unknown',sessions:'1',pages:'4',last:'Today',first:'Direct · today',ltv:'£0 (unknown)',deals:'0',emails:'0',opened:'—',intent:'Low intent',persona:'Anonymous visitor',buying:'Unknown',stage:'Awareness stage',channel:'Unknown'}
+    ];
+    const p=profiles[cur.ev];
+    document.getElementById('p360-name').textContent=p.name;
+    document.getElementById('p360-company').textContent=p.company;
+    document.getElementById('p360-role').textContent=p.role;
+    document.getElementById('p360-industry').textContent=p.industry;
+    document.getElementById('p360-sessions').textContent=p.sessions;
+    document.getElementById('p360-pages').textContent=p.pages;
+    document.getElementById('p360-last').textContent=p.last;
+    document.getElementById('p360-first').textContent=p.first;
+    document.getElementById('p360-ltv').textContent=p.ltv;
+    document.getElementById('p360-deals').textContent=p.deals;
+    document.getElementById('p360-emails').textContent=p.emails;
+    document.getElementById('p360-opened').textContent=p.opened;
+    document.getElementById('p360-intent').textContent=p.intent;
+    document.getElementById('p360-persona').textContent=p.persona;
+    document.getElementById('p360-buying').textContent=p.buying;
+    document.getElementById('p360-stage').textContent=p.stage;
+    document.getElementById('p360-channel').textContent=p.channel;
+  }
+
+  if(n===4){updatePersonaScreen();}
+
+  if(n===5){
+    document.querySelectorAll('#score-grid .card').forEach((c,i)=>c.classList.toggle('sel',i===cur.score-1));
+    const lbl={1:'1 (low)',2:'2 (medium)',3:'3 (high)'};
+    document.getElementById('score-info').innerHTML='Lead score: <strong>'+lbl[cur.score]+'</strong> — auto-assigned from event type';
+  }
+
+  if(n===6){
+    document.querySelectorAll('#seg-grid .seg-card').forEach(c=>c.className='seg-card');
+    const si={bronze:0,silver:1,gold:2,platinum:3};
+    document.querySelectorAll('#seg-grid .seg-card')[si[d.seg]].className='seg-card sel-'+d.seg;
+    cur.seg=d.seg;
+    document.querySelectorAll('#lc-grid .lc-card').forEach(c=>c.className='lc-card');
+    const li={new:0,active:1,vip:2,atrisk:3,dormant:4};
+    document.querySelectorAll('#lc-grid .lc-card')[li[d.lc]].className='lc-card sel-'+d.lc;
+    cur.lc=d.lc;
+    document.querySelectorAll('#pred-grid .card').forEach((c,i)=>c.classList.toggle('sel',['low','medium','high'].indexOf(d.pred)===i));
+    cur.pred=d.pred;
+    updateSegInfo();
+    updateChannels(d.channels);
+    cur.mode=d.mode;
+    updateModeUI(d.mode);
+  }
+
+  if(n===7){
+    document.getElementById('op-seg').textContent=d.seg.charAt(0).toUpperCase()+d.seg.slice(1)+' segment';
+    const lcLabel={new:'New',active:'Active',vip:'VIP',atrisk:'At-risk',dormant:'Dormant'};
+    document.getElementById('op-lc').textContent=lcLabel[d.lc]+' lifecycle';
+    const predLabel={low:'Low propensity',medium:'Medium propensity',high:'High propensity'};
+    document.getElementById('op-pred').textContent=predLabel[d.pred];
+    document.getElementById('op-mode').textContent=d.mode==='auto'?'Auto mode':'Manual mode';
+    document.getElementById('op-delay').textContent='Delay: '+d.delay;
+    document.getElementById('op-type').textContent=d.type;
+    document.getElementById('orch-budget').textContent=d.budget;
+    document.getElementById('orch-ab').textContent=d.ab;
+    const decisionMap={auto:'Orchestration decision: deploy channels simultaneously · auto send · '+d.delay+' delay post-event · '+d.ab+' content',manual:'Orchestration decision: queue for human approval · manual send · '+d.delay+' delay · '+d.ab+' content'};
+    const orchBox=document.getElementById('orch-decision');
+    orchBox.className=d.mode==='auto'?'successbox':'warnbox';
+    orchBox.textContent=decisionMap[d.mode];
+  }
+
+  if(n===8){
+    document.getElementById('os-email').textContent=d.emails.subj;
+    document.getElementById('ob-email').innerHTML=d.emails.body;
+    const smsCard=document.getElementById('oc-sms');
+    if(d.sms){smsCard.style.display='';document.getElementById('ob-sms').innerHTML=d.sms;}
+    else{smsCard.style.display='none';}
+    const waCard=document.getElementById('oc-whatsapp');
+    if(d.whatsapp){waCard.style.display='';document.getElementById('ob-whatsapp').innerHTML=d.whatsapp;}
+    else{waCard.style.display='none';}
+    const liCard=document.getElementById('oc-linkedin');
+    if(d.linkedin){liCard.style.display='';document.getElementById('ob-linkedin').innerHTML=d.linkedin;}
+    else{liCard.style.display='none';}
+    document.getElementById('ob-conv').innerHTML='Expected action: <span class="hl">'+d.conv+'</span> → lead created in CRM · campaign marked as converted';
+    document.getElementById('approval-box').style.display=d.mode==='manual'?'block':'none';
+  }
+
+  if(n===9){
+    document.getElementById('m-open').textContent=d.metrics.open;
+    document.getElementById('m-ctr').textContent=d.metrics.ctr;
+    document.getElementById('m-conv').textContent=d.metrics.conv;
+    document.getElementById('m-roi').textContent=d.metrics.roi;
+    document.getElementById('m-email-open').textContent=d.metrics.emailOpen;
+    document.getElementById('m-sms-resp').textContent=d.metrics.smsResp;
+    document.getElementById('m-wa-read').textContent=d.metrics.waRead;
+    document.getElementById('m-li-ctr').textContent=d.metrics.liCtr;
+    document.getElementById('m-web-lift').textContent=d.metrics.webLift;
+    document.getElementById('m-ad-roas').textContent=d.metrics.adRoas;
+    document.getElementById('fb-score').textContent=d.fb.score;
+    document.getElementById('fb-seg').textContent=d.fb.seg;
+    document.getElementById('fb-camp').textContent=d.fb.camp;
+    document.getElementById('fb-persona').textContent=d.fb.persona;
+    document.getElementById('fb-wa').textContent=d.fb.wa;
+    document.getElementById('crm-record').textContent=d.crm;
+  }
+
+  if(n===10){
+    const nb=d.nba;
+    document.getElementById('nba-seg-pill').textContent=nb.seg;
+    document.getElementById('nba-lc-pill').textContent=nb.lc;
+    document.getElementById('nba-pred-pill').textContent=nb.pred;
+    document.getElementById('nba-score-pill').textContent=nb.score;
+    document.getElementById('nba-ev-pill').textContent=nb.ev;
+    document.getElementById('nba-1-title').textContent=nb.a1;
+    document.getElementById('nba-1-sub').textContent=nb.a1s;
+    document.getElementById('nba-2-title').textContent=nb.a2;
+    document.getElementById('nba-2-sub').textContent=nb.a2s;
+    document.getElementById('nba-3-title').textContent=nb.a3;
+    document.getElementById('nba-3-sub').textContent=nb.a3s;
+    document.getElementById('nba-4-title').textContent=nb.a4;
+    document.getElementById('nba-4-sub').textContent=nb.a4s;
+    document.getElementById('nba-log').innerHTML=nb.log;
+  }
+
+  document.querySelectorAll('.screen').forEach((s,i)=>s.classList.toggle('active',i===n));
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',i===n));
+  const steps=document.querySelectorAll('[id^="fs"]');
+  steps.forEach((s,i)=>{s.className='fs'+(i<n?' done':i===n?' current':'');});
+}
+
+function restart(){
+  cur={ev:0,score:3,seg:'platinum',lc:'active',pred:'high',mode:'auto'};
+  document.querySelectorAll('#entry-grid .card').forEach((c,i)=>c.classList.toggle('sel',i===0));
+  document.querySelectorAll('#ev-grid .card').forEach((c,i)=>c.classList.toggle('sel',i===0));
+  document.getElementById('entry-info').innerHTML='Channel detected: <strong>Website visit</strong> → engagement tracking agent activated';
+  document.getElementById('ev-info').innerHTML='Event captured: <strong>Book demo click</strong> → forwarded to Identity Resolution Agent';
+  go(0);
+}
+</script>

@@ -1,0 +1,420 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+.app{padding:1rem 0;font-family:var(--font-sans);}
+.tabs{display:flex;gap:2px;border-bottom:0.5px solid var(--color-border-tertiary);margin-bottom:1.5rem;overflow-x:auto;}
+.tab{padding:8px 13px;font-size:13px;cursor:pointer;border:none;background:none;color:var(--color-text-secondary);border-bottom:2px solid transparent;margin-bottom:-0.5px;white-space:nowrap;}
+.tab.active{color:var(--color-text-primary);border-bottom:2px solid #1D9E75;font-weight:500;}
+.screen{display:none;}.screen.active{display:block;}
+.stitle{font-size:17px;font-weight:500;color:var(--color-text-primary);margin-bottom:3px;}
+.ssub{font-size:13px;color:var(--color-text-secondary);margin-bottom:1.25rem;}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:1.25rem;}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:1.25rem;}
+.grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:1.25rem;}
+.card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:13px 15px;cursor:pointer;}
+.card:hover{border-color:var(--color-border-secondary);}
+.card.sel{border:2px solid #1D9E75;background:#E1F5EE;}
+.card .ct{font-size:13px;font-weight:500;color:var(--color-text-primary);}
+.card .cs{font-size:12px;color:var(--color-text-secondary);margin-top:2px;}
+.card.sel .ct{color:#085041;}
+.card.sel .cs{color:#0F6E56;}
+.seg-card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:13px 15px;cursor:pointer;}
+.seg-card:hover{border-color:var(--color-border-secondary);}
+.seg-card.sel-bronze{border:2px solid #854F0B;background:#FAEEDA;}
+.seg-card.sel-silver{border:2px solid #5F5E5A;background:#F1EFE8;}
+.seg-card.sel-gold{border:2px solid #BA7517;background:#FAEEDA;}
+.seg-card.sel-platinum{border:2px solid #534AB7;background:#EEEDFE;}
+.seg-card .ct{font-size:13px;font-weight:500;color:var(--color-text-primary);}
+.seg-card .cs{font-size:12px;color:var(--color-text-secondary);margin-top:2px;}
+.seg-card.sel-bronze .ct{color:#633806;} .seg-card.sel-bronze .cs{color:#854F0B;}
+.seg-card.sel-silver .ct{color:#444441;} .seg-card.sel-silver .cs{color:#5F5E5A;}
+.seg-card.sel-gold .ct{color:#412402;} .seg-card.sel-gold .cs{color:#854F0B;}
+.seg-card.sel-platinum .ct{color:#26215C;} .seg-card.sel-platinum .cs{color:#534AB7;}
+.pill{font-size:11px;padding:3px 9px;border-radius:20px;display:inline-block;}
+.p-teal{background:#E1F5EE;color:#085041;}
+.p-amber{background:#FAEEDA;color:#854F0B;}
+.p-blue{background:#E6F1FB;color:#185FA5;}
+.p-purple{background:#EEEDFE;color:#3C3489;}
+.p-gray{background:#F1EFE8;color:#5F5E5A;}
+.p-green{background:#EAF3DE;color:#3B6D11;}
+.p-red{background:#FCEBEB;color:#A32D2D;}
+.p-coral{background:#FAECE7;color:#712B13;}
+.infobox{border-left:3px solid #1D9E75;padding:10px 14px;font-size:13px;color:var(--color-text-secondary);margin-bottom:1rem;border-radius:0;}
+.warnbox{border-left:3px solid #BA7517;padding:10px 14px;font-size:13px;color:#633806;background:#FAEEDA;margin-bottom:1rem;border-radius:0;}
+.successbox{border-left:3px solid #639922;padding:10px 14px;font-size:13px;color:#27500A;background:#EAF3DE;margin-bottom:1rem;border-radius:0;}
+.next-btn{background:#1D9E75;color:white;border:none;border-radius:var(--border-radius-md);padding:10px 20px;font-size:14px;font-weight:500;cursor:pointer;width:100%;}
+.next-btn:hover{background:#0F6E56;}
+.back-btn{background:none;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:9px 16px;font-size:13px;color:var(--color-text-secondary);cursor:pointer;}
+.btn-row{display:flex;gap:8px;margin-top:1rem;}
+.btn-row .next-btn{flex:1;}
+.label{font-size:13px;font-weight:500;color:var(--color-text-secondary);margin-bottom:8px;}
+.oc{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:15px;margin-bottom:10px;}
+.otype{font-size:11px;font-weight:500;color:var(--color-text-secondary);letter-spacing:0.5px;margin-bottom:6px;}
+.osubj{font-size:14px;font-weight:500;color:var(--color-text-primary);margin-bottom:6px;}
+.obody{font-size:13px;color:var(--color-text-secondary);line-height:1.6;}
+.hl{color:#1D9E75;font-weight:500;}
+.metric-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:1.25rem;}
+.metric{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:12px;text-align:center;}
+.metric .mv{font-size:22px;font-weight:500;color:var(--color-text-primary);}
+.metric .ml{font-size:11px;color:var(--color-text-secondary);margin-top:2px;}
+.flow-steps{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:1.5rem;}
+.fs{padding:5px 11px;border-radius:20px;font-size:12px;background:var(--color-background-secondary);color:var(--color-text-secondary);border:0.5px solid var(--color-border-tertiary);}
+.fs.done{background:#E1F5EE;color:#085041;border-color:#5DCAA5;}
+.fs.current{background:#1D9E75;color:white;border-color:#1D9E75;}
+.fa{font-size:12px;color:var(--color-text-secondary);}
+.toggle-row{display:flex;gap:8px;margin-bottom:1.25rem;}
+.toggle-btn{flex:1;padding:9px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-tertiary);background:var(--color-background-primary);font-size:13px;cursor:pointer;color:var(--color-text-secondary);}
+.toggle-btn.active-auto{border:2px solid #1D9E75;background:#E1F5EE;color:#085041;font-weight:500;}
+.toggle-btn.active-manual{border:2px solid #BA7517;background:#FAEEDA;color:#633806;font-weight:500;}
+.channel-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1.25rem;}
+.ch{padding:5px 12px;border-radius:20px;font-size:12px;border:0.5px solid var(--color-border-tertiary);background:var(--color-background-secondary);color:var(--color-text-secondary);}
+.ch.on{background:#E1F5EE;border-color:#1D9E75;color:#085041;font-weight:500;}
+.divider{height:0.5px;background:var(--color-border-tertiary);margin:1rem 0;}
+</style>
+
+<div class="app">
+<div style="margin-bottom:1rem;">
+  <div style="font-size:20px;font-weight:500;color:var(--color-text-primary);margin-bottom:3px;">AI marketing agent — full prototype</div>
+  <div style="font-size:13px;color:var(--color-text-secondary);">5-screen walkthrough of the complete agent architecture</div>
+</div>
+
+<div class="flow-steps" id="flow-steps">
+  <div class="fs current" id="fs0">1. Event</div><div class="fa">→</div>
+  <div class="fs" id="fs1">2. Personalise</div><div class="fa">→</div>
+  <div class="fs" id="fs2">3. Lead score</div><div class="fa">→</div>
+  <div class="fs" id="fs3">4. Segment</div><div class="fa">→</div>
+  <div class="fs" id="fs4">5. Content</div><div class="fa">→</div>
+  <div class="fs" id="fs5">6. Analytics</div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="go(0)">1. Event tracking</button>
+  <button class="tab" onclick="go(1)">2. Personalisation</button>
+  <button class="tab" onclick="go(2)">3. Lead scoring</button>
+  <button class="tab" onclick="go(3)">4. Segmentation</button>
+  <button class="tab" onclick="go(4)">5. Content + output</button>
+  <button class="tab" onclick="go(5)">6. Analytics + loop</button>
+</div>
+
+<div class="screen active" id="sc0">
+  <div class="stitle">Event tracking agent</div>
+  <div class="ssub">What did the user do on the landing page?</div>
+  <div class="grid2" id="ev-grid">
+    <div class="card sel" onclick="selEv(0,this)"><div class="ct">Book demo click</div><div class="cs">Highest intent signal</div></div>
+    <div class="card" onclick="selEv(1,this)"><div class="ct">Add to cart</div><div class="cs">Purchase intent</div></div>
+    <div class="card" onclick="selEv(2,this)"><div class="ct">Form submit</div><div class="cs">Contact / signup</div></div>
+    <div class="card" onclick="selEv(3,this)"><div class="ct">Video click</div><div class="cs">Content engagement</div></div>
+    <div class="card" onclick="selEv(4,this)"><div class="ct">CTA click</div><div class="cs">Moderate intent</div></div>
+    <div class="card" onclick="selEv(5,this)"><div class="ct">Time on site ≥ 5 min</div><div class="cs">Browsing engagement</div></div>
+  </div>
+  <div class="infobox" id="ev-info">Event captured: <strong>Book demo click</strong> → forwarded to Personalisation Agent</div>
+  <button class="next-btn" onclick="go(1)">Next: real-time personalisation →</button>
+</div>
+
+<div class="screen" id="sc1">
+  <div class="stitle">Real-time website personalisation agent</div>
+  <div class="ssub">AI modifies landing page content dynamically — no waiting for email. Reacts instantly to user behaviour signals.</div>
+
+  <div class="label">Detected behaviour signal</div>
+  <div class="grid2" id="signal-grid">
+    <div class="card sel" onclick="selSignal(0,this)"><div class="ct">⏱ Time on pricing page &gt; 3 min</div><div class="cs">High purchase curiosity detected</div></div>
+    <div class="card" onclick="selSignal(1,this)"><div class="ct">🚪 Exit intent detected</div><div class="cs">Cursor moving toward close</div></div>
+    <div class="card" onclick="selSignal(2,this)"><div class="ct">🔁 Repeat visit</div><div class="cs">2nd+ session on same week</div></div>
+    <div class="card" onclick="selSignal(3,this)"><div class="ct">🖱 CTA hover — no click</div><div class="cs">Hesitation at conversion point</div></div>
+  </div>
+
+  <div class="label">Actions taken by personalisation agent</div>
+  <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:1.25rem;" id="persona-actions">
+    <div class="successbox" style="margin-bottom:0;">
+      <div style="font-size:12px;font-weight:600;color:#085041;margin-bottom:6px;">PERSONALISATION AGENT — LIVE UPDATE</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;" id="persona-grid">
+        <div style="background:white;border-radius:6px;padding:10px;">
+          <div style="font-size:11px;font-weight:500;color:#5F5E5A;margin-bottom:4px;">CTA — BEFORE</div>
+          <div style="font-size:13px;color:#333;" id="cta-before">Learn More</div>
+        </div>
+        <div style="background:#1D9E75;border-radius:6px;padding:10px;">
+          <div style="font-size:11px;font-weight:500;color:#b2f0da;margin-bottom:4px;">CTA — AFTER ✦</div>
+          <div style="font-size:13px;font-weight:600;color:white;" id="cta-after">Book Free Consultation Now</div>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="cursor:default;" id="persona-banner-card">
+      <div class="ct" id="persona-banner-label">Offer banner injected</div>
+      <div class="cs" id="persona-banner-text">Limited demo slots available today — only 3 left this week</div>
+    </div>
+    <div class="card" style="cursor:default;" id="persona-chat-card">
+      <div class="ct" id="persona-chat-label">Chatbot popup triggered</div>
+      <div class="cs" id="persona-chat-text">💬 "Need help choosing the right plan? Let me show you a quick comparison."</div>
+    </div>
+    <div class="card" style="cursor:default;" id="persona-hero-card">
+      <div class="ct">Personalised hero text updated</div>
+      <div class="cs" id="persona-hero-text">Hi Nova — see how our AI solution helps students and startups like yours grow faster.</div>
+    </div>
+  </div>
+
+  <div class="infobox">Personalisation agent signalled lead scoring agent: intent upgraded based on pricing page engagement.</div>
+  <div class="btn-row"><button class="back-btn" onclick="go(0)">← Back</button><button class="next-btn" onclick="go(2)">Next: lead scoring →</button></div>
+</div>
+
+<div class="screen" id="sc2">
+  <div class="stitle">Lead scoring agent</div>
+  <div class="ssub">Agent assigns intent score 1, 2, or 3 based on event + behaviour pattern.</div>
+  <div class="grid3" id="score-grid">
+    <div class="card" onclick="selScore(1,this)"><div class="ct">Score 1 — low</div><div class="cs">Browsing, no action</div></div>
+    <div class="card" onclick="selScore(2,this)"><div class="ct">Score 2 — medium</div><div class="cs">Engaged, mild intent</div></div>
+    <div class="card sel" onclick="selScore(3,this)"><div class="ct">Score 3 — high</div><div class="cs">Strong purchase signal</div></div>
+  </div>
+  <div class="infobox" id="score-info">Lead score: <strong>3 (high)</strong> — auto-assigned from event type</div>
+  <div class="btn-row"><button class="back-btn" onclick="go(1)">← Back</button><button class="next-btn" onclick="go(3)">Next: segmentation →</button></div>
+</div>
+
+<div class="screen" id="sc3">
+  <div class="stitle">Audience segmentation agent</div>
+  <div class="ssub">Agent places the lead into a tier. Each tier controls budget, channels, and approval mode.</div>
+  <div class="grid4" id="seg-grid">
+    <div class="seg-card" onclick="selSeg('bronze',this)"><div class="ct">Bronze</div><div class="cs">Score 1 · awareness</div></div>
+    <div class="seg-card" onclick="selSeg('silver',this)"><div class="ct">Silver</div><div class="cs">Score 1–2 · nurture</div></div>
+    <div class="seg-card" onclick="selSeg('gold',this)"><div class="ct">Gold</div><div class="cs">Score 2–3 · convert</div></div>
+    <div class="seg-card sel-platinum" onclick="selSeg('platinum',this)"><div class="ct">Platinum</div><div class="cs">Score 3 · high value</div></div>
+  </div>
+  <div class="infobox" id="seg-info">Segment: <strong>Platinum</strong> — auto mode, all premium channels unlocked</div>
+  <div class="label">Channels unlocked for this segment</div>
+  <div class="channel-row" id="ch-row">
+    <div class="ch on">Email</div><div class="ch on">SMS / WhatsApp</div><div class="ch on">LinkedIn</div><div class="ch on">Website personalisation</div><div class="ch on">Meta / Google Ads</div>
+  </div>
+  <div class="label">Cost control mode</div>
+  <div class="toggle-row" id="mode-toggle">
+    <button class="toggle-btn active-auto" onclick="selMode('auto',this)">Automatic — AI sends directly</button>
+    <button class="toggle-btn" onclick="selMode('manual',this)">Manual — human approves first</button>
+  </div>
+  <div id="mode-box" class="successbox">Automatic mode: AI agent generates + sends without waiting for approval. Used for Gold / Platinum to maximise speed.</div>
+  <div class="btn-row"><button class="back-btn" onclick="go(2)">← Back</button><button class="next-btn" onclick="go(4)">Next: content + output →</button></div>
+</div>
+
+<div class="screen" id="sc4">
+  <div class="stitle">Content generation agent + campaign output</div>
+  <div class="ssub">AI generates personalised content per channel. Approval mode set by segment.</div>
+
+  <div class="label">Orchestration agent decision</div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1.25rem;" id="orch-pills">
+    <span class="pill p-teal" id="op-seg">Platinum segment</span>
+    <span class="pill p-purple" id="op-mode">Auto mode</span>
+    <span class="pill p-amber" id="op-delay">Delay: 1h</span>
+    <span class="pill p-blue" id="op-type">Reminder + offer</span>
+  </div>
+
+  <div id="output-cards">
+    <div class="oc" id="oc-email">
+      <div class="otype">Email agent</div>
+      <div class="osubj" id="os-email">Your demo is ready — confirm your slot now</div>
+      <div class="obody" id="ob-email">Hi <span class="hl">[First Name]</span>,<br><br>You clicked to book a demo — your slot is still available for <span class="hl">48 hours</span>. Our team is ready to give you a personalised walkthrough.<br><br><span class="hl">→ Confirm my demo slot</span></div>
+    </div>
+    <div class="oc" id="oc-sms">
+      <div class="otype">SMS / WhatsApp agent</div>
+      <div class="obody" id="ob-sms">Hi <span class="hl">[Name]</span> — your demo slot expires in 48h. Confirm now: <span class="hl">[link]</span></div>
+    </div>
+    <div class="oc" id="oc-conv">
+      <div class="otype">Conversion / action agent</div>
+      <div class="obody" id="ob-conv">Expected action: <span class="hl">Demo booking confirmed</span> → lead created in CRM · campaign marked as converted</div>
+    </div>
+  </div>
+
+  <div id="approval-box" style="display:none;" class="warnbox">Manual mode active — content above is queued for human review before sending.</div>
+
+  <div class="btn-row"><button class="back-btn" onclick="go(3)">← Back</button><button class="next-btn" onclick="go(5)">Next: analytics + feedback →</button></div>
+</div>
+
+<div class="screen" id="sc5">
+  <div class="stitle">Analytics + feedback loop</div>
+  <div class="ssub">Analytics agent tracks results. Learning loop updates lead scores and segments automatically.</div>
+
+  <div class="metric-grid">
+    <div class="metric"><div class="mv" id="m-open">68%</div><div class="ml">Email open rate</div></div>
+    <div class="metric"><div class="mv" id="m-ctr">24%</div><div class="ml">CTR</div></div>
+    <div class="metric"><div class="mv" id="m-conv">11%</div><div class="ml">Conversion rate</div></div>
+    <div class="metric"><div class="mv" id="m-roi">4.2x</div><div class="ml">ROI</div></div>
+  </div>
+
+  <div class="label">Learning / feedback loop — what updates automatically</div>
+  <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:1.25rem;">
+    <div class="card" style="cursor:default;">
+      <div class="ct">Lead scoring agent update</div>
+      <div class="cs" id="fb-score">High open rate + conversion → score 3 threshold confirmed. No change needed.</div>
+    </div>
+    <div class="card" style="cursor:default;">
+      <div class="ct">Audience segment update</div>
+      <div class="cs" id="fb-seg">Platinum segment performance strong → budget allocation maintained.</div>
+    </div>
+    <div class="card" style="cursor:default;">
+      <div class="ct">Campaign orchestration update</div>
+      <div class="cs" id="fb-camp">Email + SMS combo effective for demo-intent leads → rule reinforced for next cycle.</div>
+    </div>
+    <div class="card" style="cursor:default;">
+      <div class="ct">Website personalisation update</div>
+      <div class="cs" id="fb-persona">Dynamic CTA on pricing page increased CTR from 24% → 31% — personalisation rule reinforced.</div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="label">CRM / customer DB</div>
+  <div class="infobox">Lead record updated: score 3 · Platinum · demo booked · campaign response logged → available for next campaign cycle</div>
+
+  <div class="label">Cost optimisation summary</div>
+  <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:1.25rem;">
+    <div style="background:#E1F5EE;border-radius:var(--border-radius-md);padding:12px;">
+      <div style="font-size:12px;font-weight:500;color:#085041;margin-bottom:4px;">Automatic mode</div>
+      <div style="font-size:12px;color:#0F6E56;">Gold + Platinum leads · high-intent · AI sends directly · maximise speed + conversion</div>
+    </div>
+    <div style="background:#FAEEDA;border-radius:var(--border-radius-md);padding:12px;">
+      <div style="font-size:12px;font-weight:500;color:#633806;margin-bottom:4px;">Manual mode</div>
+      <div style="font-size:12px;color:#854F0B;">Bronze + Silver leads · awareness campaigns · human approves · controls token spend</div>
+    </div>
+  </div>
+
+  <div class="btn-row"><button class="back-btn" onclick="go(4)">← Back</button><button class="next-btn" onclick="restart()">↺ Simulate another lead</button></div>
+</div>
+</div>
+
+<script>
+const evData=[
+  {label:'Book demo click',score:3,seg:'platinum',channels:['Email','SMS / WhatsApp','LinkedIn','Website personalisation','Meta / Google Ads'],mode:'auto',delay:'1h',type:'Reminder + offer',emails:{subj:'Your demo is ready — confirm your slot now',body:'Hi <span class="hl">[First Name]</span>,<br><br>You clicked to book a demo — your slot is still available for <span class="hl">48 hours</span>. Our team is ready to give you a personalised walkthrough.<br><br><span class="hl">→ Confirm my demo slot</span>'},sms:'Hi <span class="hl">[Name]</span> — your demo slot expires in 48h. Confirm now: <span class="hl">[link]</span>',conv:'Demo booking confirmed',metrics:{open:'68%',ctr:'24%',conv:'11%',roi:'4.2x'},fb:{score:'High open rate + conversion → score 3 threshold confirmed.',seg:'Platinum performance strong → budget allocation maintained.',camp:'Email + SMS combo effective for demo-intent leads → rule reinforced.',persona:'Dynamic CTA on pricing page increased CTR from 24% → 31% — personalisation rule reinforced.'}},
+  {label:'Add to cart',score:2,seg:'gold',channels:['Email','SMS / WhatsApp','Meta / Google Ads'],mode:'auto',delay:'24h',type:'Nurture + cart recovery',emails:{subj:'You left something in your cart — complete your order',body:'Hi <span class="hl">[First Name]</span>,<br><br>Your cart is saved and ready. Don\'t miss out — complete your purchase and get access today.<br><br><span class="hl">→ Return to my cart</span>'},sms:'Hi <span class="hl">[Name]</span> — your cart is waiting. Complete your order: <span class="hl">[link]</span>',conv:'Purchase completed',metrics:{open:'52%',ctr:'18%',conv:'7%',roi:'2.8x'},fb:{score:'Cart abandonment + purchase → score 2–3 boundary re-evaluated.',seg:'Gold segment cart recovery performing well → budget held.',camp:'24h delay optimal for cart recovery → rule confirmed.',persona:'Exit-intent personalisation reduced abandonment rate by 18% — banner rule reinforced.'}},
+  {label:'Form submit',score:3,seg:'platinum',channels:['Email','LinkedIn','Website personalisation'],mode:'auto',delay:'0h',type:'Welcome + onboarding',emails:{subj:'Welcome — here\'s how to get started',body:'Hi <span class="hl">[First Name]</span>,<br><br>Thanks for reaching out. A member of our team will contact you within 24 hours. In the meantime, here\'s everything you need to get started.<br><br><span class="hl">→ Explore the product</span>'},sms:null,conv:'Lead created in CRM',metrics:{open:'71%',ctr:'29%',conv:'15%',roi:'5.1x'},fb:{score:'Form submit confirmed as score 3 signal → no change.',seg:'Platinum threshold validated for form submits.',camp:'Immediate send (0h delay) optimal for form responses → rule confirmed.',persona:'Welcome hero text personalisation lifted onboarding completion by 9%.'}},
+  {label:'Video click',score:1,seg:'silver',channels:['Email'],mode:'manual',delay:'48h',type:'Educational',emails:{subj:'Thought you\'d enjoy this — more on [topic]',body:'Hi <span class="hl">[First Name]</span>,<br><br>We noticed you watched our video on [topic]. Here\'s a deeper guide we think you\'ll find valuable.<br><br><span class="hl">→ Read the full guide</span>'},sms:null,conv:'Content engagement tracked',metrics:{open:'38%',ctr:'9%',conv:'2%',roi:'1.1x'},fb:{score:'Video click → score 1 signal. Low conversion suggests score threshold correct.',seg:'Silver segment — manual mode cost-effective for low-intent.',camp:'Educational content performs moderately → A/B test recommended.',persona:'Repeat-visit personalisation nudged 12% of video viewers back to pricing page.'}},
+  {label:'CTA click',score:2,seg:'gold',channels:['Email','Meta / Google Ads'],mode:'auto',delay:'12h',type:'Offer + conversion',emails:{subj:'Ready to take the next step?',body:'Hi <span class="hl">[First Name]</span>,<br><br>You showed interest — now\'s the time to move forward. We\'ve put together a special offer just for you.<br><br><span class="hl">→ See my offer</span>'},sms:null,conv:'Lead qualified',metrics:{open:'47%',ctr:'15%',conv:'6%',roi:'2.3x'},fb:{score:'CTA click → score 2 confirmed. Conversion rate suggests some qualify for score 3.',seg:'Gold segment performing as expected.',camp:'12h delay effective for CTA follow-up → rule maintained.',persona:'CTA hover hesitation banner reduced drop-off by 14% — rule reinforced.'}},
+  {label:'Time on site ≥ 5 min',score:1,seg:'bronze',channels:['Email'],mode:'manual',delay:'72h',type:'Awareness + nurture',emails:{subj:'Here\'s what makes [Product] different',body:'Hi <span class="hl">[First Name]</span>,<br><br>You spent time on our site recently — thanks for your interest. Here\'s a quick overview of what makes us different from the rest.<br><br><span class="hl">→ Learn more</span>'},sms:null,conv:'Awareness tracked',metrics:{open:'29%',ctr:'6%',conv:'1%',roi:'0.8x'},fb:{score:'Long browse without action → score 1. May upgrade to score 2 with second visit.',seg:'Bronze segment → manual mode keeps token cost low for low-intent.',camp:'Long delay (72h) appropriate for cold leads → rule confirmed.',persona:'Chatbot popup on long-browse sessions captured 7% more form submissions.'}}
+];
+
+let cur={ev:0,score:3,seg:'platinum',mode:'auto'};
+
+function selEv(i,el){
+  cur.ev=i;
+  document.querySelectorAll('#ev-grid .card').forEach(c=>c.classList.remove('sel'));
+  el.classList.add('sel');
+  const d=evData[i];
+  document.getElementById('ev-info').innerHTML='Event captured: <strong>'+d.label+'</strong> → forwarded to Personalisation Agent';
+  cur.score=d.score; cur.seg=d.seg; cur.mode=d.mode;
+}
+
+function selScore(s,el){
+  cur.score=s;
+  document.querySelectorAll('#score-grid .card').forEach(c=>c.classList.remove('sel'));
+  el.classList.add('sel');
+  const lbl={1:'1 (low)',2:'2 (medium)',3:'3 (high)'};
+  document.getElementById('score-info').innerHTML='Lead score: <strong>'+lbl[s]+'</strong> — auto-assigned from event type';
+}
+
+function selSeg(s,el){
+  cur.seg=s;
+  document.querySelectorAll('#seg-grid .seg-card').forEach(c=>{c.className='seg-card';});
+  el.className='seg-card sel-'+s;
+  const info={bronze:'Bronze — manual mode, email only, low budget.',silver:'Silver — manual mode, email + social, moderate budget.',gold:'Gold — auto mode, multi-channel, standard budget.',platinum:'Platinum — auto mode, all premium channels unlocked.'};
+  document.getElementById('seg-info').innerHTML='Segment: <strong>'+s.charAt(0).toUpperCase()+s.slice(1)+'</strong> — '+info[s];
+  const d=evData[cur.ev];
+  updateChannels(d.channels);
+  const m=(['bronze','silver'].includes(s))?'manual':'auto';
+  cur.mode=m;
+  updateModeUI(m);
+}
+
+function updateChannels(chs){
+  const all=['Email','SMS / WhatsApp','LinkedIn','Website personalisation','Meta / Google Ads'];
+  document.getElementById('ch-row').innerHTML=all.map(c=>'<div class="ch'+(chs.includes(c)?' on':'')+'">' +c+'</div>').join('');
+}
+
+function selMode(m,el){
+  cur.mode=m;
+  updateModeUI(m);
+}
+
+function updateModeUI(m){
+  document.querySelectorAll('.toggle-btn').forEach(b=>b.className='toggle-btn');
+  const btns=document.querySelectorAll('.toggle-btn');
+  if(m==='auto'){btns[0].className='toggle-btn active-auto';}else{btns[1].className='toggle-btn active-manual';}
+  const box=document.getElementById('mode-box');
+  if(m==='auto'){box.className='successbox';box.textContent='Automatic mode: AI agent generates + sends without waiting for approval. Used for Gold / Platinum to maximise speed.';}
+  else{box.className='warnbox';box.textContent='Manual mode: content is queued for human review before sending. Used for Bronze / Silver to control token cost.';}
+}
+
+function go(n){
+  const d=evData[cur.ev];
+  if(n===1){
+    updatePersonaScreen(cur.ev);
+  }
+  if(n===2){
+    document.querySelectorAll('#score-grid .card').forEach((c,i)=>c.classList.toggle('sel',i===cur.score-1));
+    const lbl={1:'1 (low)',2:'2 (medium)',3:'3 (high)'};
+    document.getElementById('score-info').innerHTML='Lead score: <strong>'+lbl[cur.score]+'</strong> — auto-assigned from event type';
+  }
+  if(n===3){
+    document.querySelectorAll('#seg-grid .seg-card').forEach(c=>c.className='seg-card');
+    const active=document.querySelectorAll('#seg-grid .seg-card');
+    const si={bronze:0,silver:1,gold:2,platinum:3};
+    active[si[d.seg]].className='seg-card sel-'+d.seg;
+    document.getElementById('seg-info').innerHTML='Segment: <strong>'+d.seg.charAt(0).toUpperCase()+d.seg.slice(1)+'</strong>';
+    updateChannels(d.channels);
+    cur.mode=d.mode;
+    updateModeUI(d.mode);
+  }
+  if(n===4){
+    document.getElementById('op-seg').textContent=d.seg.charAt(0).toUpperCase()+d.seg.slice(1)+' segment';
+    document.getElementById('op-mode').textContent=d.mode==='auto'?'Auto mode':'Manual mode';
+    document.getElementById('op-delay').textContent='Delay: '+d.delay;
+    document.getElementById('op-type').textContent=d.type;
+    document.getElementById('os-email').textContent=d.emails.subj;
+    document.getElementById('ob-email').innerHTML=d.emails.body;
+    const smsCard=document.getElementById('oc-sms');
+    if(d.sms){smsCard.style.display='';document.getElementById('ob-sms').innerHTML=d.sms;}
+    else{smsCard.style.display='none';}
+    document.getElementById('ob-conv').innerHTML='Expected action: <span class="hl">'+d.conv+'</span> → lead created in CRM · campaign marked as converted';
+    const ab=document.getElementById('approval-box');
+    ab.style.display=d.mode==='manual'?'block':'none';
+  }
+  if(n===5){
+    document.getElementById('m-open').textContent=d.metrics.open;
+    document.getElementById('m-ctr').textContent=d.metrics.ctr;
+    document.getElementById('m-conv').textContent=d.metrics.conv;
+    document.getElementById('m-roi').textContent=d.metrics.roi;
+    document.getElementById('fb-score').textContent=d.fb.score;
+    document.getElementById('fb-seg').textContent=d.fb.seg;
+    document.getElementById('fb-camp').textContent=d.fb.camp;
+    document.getElementById('fb-persona').textContent=d.fb.persona||'Website personalisation CTR lift tracked → rule reinforced.';
+  }
+  document.querySelectorAll('.screen').forEach((s,i)=>s.classList.toggle('active',i===n));
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',i===n));
+  const steps=document.querySelectorAll('[id^="fs"]');
+  steps.forEach((s,i)=>{s.className='fs'+(i<n?' done':i===n?' current':'');});
+}
+
+function restart(){
+  cur={ev:0,score:3,seg:'platinum',mode:'auto'};
+  document.querySelectorAll('#ev-grid .card').forEach((c,i)=>c.classList.toggle('sel',i===0));
+  document.getElementById('ev-info').innerHTML='Event captured: <strong>Book demo click</strong> → forwarded to Personalisation Agent';
+  go(0);
+}
+
+const personaData=[
+  {signal:'Time on pricing page > 3 min',ctaBefore:'Learn More',ctaAfter:'Book Free Consultation Now',banner:'Limited demo slots available today — only 3 left this week',chat:'💬 "Spending time on pricing? Let me help you pick the right plan."',hero:'Hi Nova — see how our AI solution helps startups like yours close deals faster.'},
+  {signal:'Exit intent detected',ctaBefore:'Get Started',ctaAfter:'Wait — Grab Your Free Demo Before You Go',banner:'🎁 Special offer: free 30-min strategy call for first-time visitors',chat:'💬 "Before you leave — can I answer any quick questions?"',hero:'Don\'t miss out — thousands of teams already growing with us.'},
+  {signal:'Repeat visit',ctaBefore:'Learn More',ctaAfter:'Welcome Back — Ready to Move Forward?',banner:'👋 You\'re back! Your saved demo slot is still available.',chat:'💬 "Great to see you again! Want a personalised walkthrough today?"',hero:'Hi again — here\'s what\'s new since your last visit.'},
+  {signal:'CTA hover — no click',ctaBefore:'Start Free Trial',ctaAfter:'Try It Free — No Credit Card Needed',banner:'✅ Risk-free: cancel anytime, no contracts',chat:'💬 "Not sure yet? I can show you a 2-min product tour right now."',hero:'Join 5,000+ teams who started with zero commitment.'}
+];
+
+let curSignal=0;
+
+function selSignal(i,el){
+  curSignal=i;
+  document.querySelectorAll('#signal-grid .card').forEach(c=>c.classList.remove('sel'));
+  el.classList.add('sel');
+  updatePersonaScreen(cur.ev);
+}
+
+function updatePersonaScreen(evIdx){
+  const p=personaData[curSignal];
+  document.getElementById('cta-before').textContent=p.ctaBefore;
+  document.getElementById('cta-after').textContent=p.ctaAfter;
+  document.getElementById('persona-banner-text').textContent=p.banner;
+  document.getElementById('persona-chat-text').textContent=p.chat;
+  document.getElementById('persona-hero-text').textContent=p.hero;
+}
+</script>
